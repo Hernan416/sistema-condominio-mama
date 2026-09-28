@@ -1,0 +1,73 @@
+---
+// "Estado de cuenta hoy": lo primero que ve el residente. Letra grande, una idea por línea.
+import Icon from '@/components/ui/Icon.astro';
+import type { ResidentDashboardView } from '@/adapters/residentDashboardAdapter';
+
+interface Props {
+  status: ResidentDashboardView['status'];
+  todayRateLabel: string | null;
+  /** Enlace a la vista previa del recibo (botón grande en el teléfono). */
+  receiptHref?: string | null;
+}
+
+const { status: s, todayRateLabel, receiptHref = null } = Astro.props;
+---
+
+<section aria-labelledby="status-heading" class="rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-float)] ring-1 ring-line sm:p-8">
+  <h2 id="status-heading" class="mb-4 text-lg font-bold text-ink-muted">Su estado de cuenta hoy</h2>
+
+  {
+    s.upToDate ? (
+      <div class="flex items-center gap-4">
+        <span class="inline-flex size-16 shrink-0 items-center justify-center rounded-2xl bg-accent-tint text-accent">
+          <Icon name="check" size={36} strokeWidth={3} />
+        </span>
+        <div>
+          <p class="font-display text-4xl font-semibold text-accent sm:text-5xl">Está al día</p>
+          <p class="text-xl">¡Gracias por pagar a tiempo!</p>
+        </div>
+      </div>
+    ) : (
+      <div>
+        <p class="text-xl text-ink-muted">Total que debe</p>
+        <p class="font-display text-6xl font-semibold leading-tight text-warning">{s.outstandingLabel}</p>
+        {s.outstandingVesLabel && <p class="text-2xl font-bold">{s.outstandingVesLabel} <span class="text-lg font-normal text-ink-muted">a la tasa de hoy</span></p>}
+        <ul class="mt-4 flex flex-col gap-2 text-base font-bold sm:flex-row sm:flex-wrap">
+          <li class="rounded-xl bg-warning-tint px-4 py-2.5 text-warning sm:rounded-full sm:py-1.5">{s.pendingCount} {s.pendingCount === 1 ? 'cuenta pendiente' : 'cuentas pendientes'}</li>
+          {s.nextDueLabel && (
+            <li class:list={['px-4', 'rounded-xl py-2.5 sm:rounded-full sm:py-1.5', s.overdue ? 'bg-danger-tint text-danger' : 'bg-sunken text-ink']}>
+              {s.overdue ? `Venció el ${s.nextDueLabel}` : `Vence el ${s.nextDueLabel}`}
+            </li>
+          )}
+          {s.oldestAgeLabel && s.oldestAgeLabel !== 'aún no vence' && <li class="rounded-xl bg-sunken px-4 py-2.5 text-ink sm:rounded-full sm:py-1.5">Deuda más antigua: {s.oldestAgeLabel}</li>}
+        </ul>
+      </div>
+    )
+  }
+
+  {
+    receiptHref && (
+      <a href={receiptHref} class="mt-5 flex min-h-14 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-accent px-5 text-lg font-bold text-on-accent no-underline shadow-[var(--shadow-button)] sm:hidden">
+        {s.upToDate ? 'Ver mi último recibo' : 'Ver mi recibo y cómo pagar'} <Icon name="arrow-right" size={20} />
+      </a>
+    )
+  }
+
+  {s.creditLabel && <p class="mt-5 rounded-[var(--radius-control)] bg-accent-tint px-5 py-3 text-xl font-bold text-accent-strong">Tiene {s.creditLabel} a favor: se descuenta de su próximo recibo.</p>}
+
+  <dl class="mt-6 grid grid-cols-2 gap-4 border-t border-line pt-5 sm:grid-cols-3">
+    <div>
+      <dt class="text-base text-ink-muted">Ha pagado en total</dt>
+      <dd class="text-2xl font-bold">{s.totalPaidLabel}</dd>
+    </div>
+    <div>
+      <dt class="text-base text-ink-muted">Pagos hechos</dt>
+      <dd class="text-2xl font-bold">{s.paymentsCount}</dd>
+    </div>
+    <div class="col-span-2 sm:col-span-1">
+      <dt class="text-base text-ink-muted">Último pago</dt>
+      <dd class="text-xl font-bold">{s.lastPaymentLabel ?? 'Todavía ninguno'}</dd>
+    </div>
+  </dl>
+  {todayRateLabel && <p class="mt-4 text-sm text-ink-muted sm:text-base">Tasa de hoy: {todayRateLabel}.</p>}
+</section>

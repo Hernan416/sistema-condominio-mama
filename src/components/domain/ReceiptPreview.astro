@@ -1,0 +1,133 @@
+---
+// Vista previa del recibo en la pantalla (como una hoja): mismos datos congelados que el PDF,
+// legible en el teléfono sin abrir archivos. La descarga es un enlace discreto.
+// Móvil: primero lo importante (cuánto, cuándo, cómo pagar) y el detalle de gastos plegado.
+// Escritorio (sm+): la hoja completa, en el orden del PDF.
+import Icon from '@/components/ui/Icon.astro';
+import type { ReceiptPreviewView } from '@/adapters/residentDashboardAdapter';
+
+interface Props {
+  receipt: ReceiptPreviewView;
+}
+
+const { receipt: r } = Astro.props;
+const tone = { done: 'bg-accent-tint text-accent-strong', warning: 'bg-warning-tint text-warning', danger: 'bg-danger-tint text-danger', default: 'bg-sunken text-ink' };
+const lineCount = r.sections.reduce((n, s) => n + s.lines.length, 0);
+---
+
+<section id="recibo" aria-labelledby="receipt-heading" class="scroll-mt-4">
+  <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h2 id="receipt-heading" class="font-display text-3xl font-semibold">Recibo de {r.periodLabel.toLowerCase()}</h2>
+      <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-lg text-ink-muted">
+        <span class:list={['inline-flex rounded-full px-3 py-0.5 text-base font-bold', tone[r.status.tone]]}>{r.status.label}</span>
+        {r.outstandingLabel && r.status.tone !== 'done' && <span class="whitespace-nowrap">Hoy le falta pagar <strong class="text-warning">{r.outstandingLabel}</strong></span>}
+      </p>
+    </div>
+    <a href={r.downloadHref} download class="hidden min-h-11 items-center gap-2 rounded-full px-3 text-base font-bold text-accent no-underline ring-1 ring-line hover:bg-sunken sm:inline-flex">
+      <Icon name="download" size={18} /> Descargar PDF
+    </a>
+  </div>
+
+  <article class="flex flex-col rounded-[var(--radius-card)] bg-surface p-5 text-base shadow-[var(--shadow-raised)] ring-1 ring-line sm:p-7" aria-label={`Vista previa del recibo de ${r.periodLabel}`}>
+    <!-- Encabezado -->
+    <header class="order-1 flex flex-wrap justify-between gap-x-4 gap-y-3 border-b border-line pb-4">
+      <div class="min-w-0">
+        <p class="font-display text-2xl font-semibold">{r.condominiumName}</p>
+        {r.rif && <p class="text-ink-muted">RIF {r.rif}</p>}
+        {r.address && <p class="hidden text-ink-muted sm:block">{r.address}</p>}
+      </div>
+      <div class="grid w-full grid-cols-2 gap-x-4 gap-y-1 sm:block sm:w-auto sm:text-right">
+        <p class="col-span-2 text-sm font-bold uppercase tracking-[0.08em] text-accent">Recibo de condominio</p>
+        {r.receiptNumber && <p class="col-span-2 font-bold">N° {r.receiptNumber}</p>}
+        {r.issuedLabel && <p class="text-ink-muted"><span class="sm:hidden block text-sm">Emitido</span><span class="hidden sm:inline">Emitido el </span>{r.issuedLabel}</p>}
+        {r.dueLabel && <p class="font-bold"><span class="block text-sm font-normal text-ink-muted sm:hidden">Vence</span><span class="hidden sm:inline">Vence el </span>{r.dueLabel}</p>}
+      </div>
+    </header>
+
+    <!-- Datos del propietario -->
+    <dl class="order-2 grid grid-cols-2 gap-3 border-b border-line py-4 sm:grid-cols-4">
+      <div class="col-span-2 sm:col-span-1"><dt class="text-sm text-ink-muted">Propietario</dt><dd class="font-bold">{r.ownerName ?? '—'}</dd></div>
+      <div><dt class="text-sm text-ink-muted">C.I. / RIF</dt><dd class="font-bold">{r.ownerDocument ?? '—'}</dd></div>
+      <div><dt class="text-sm text-ink-muted">Casa</dt><dd class="font-bold">{r.houseNumber}</dd></div>
+      <div><dt class="text-sm text-ink-muted">Alícuota</dt><dd class="font-bold">{r.aliquotLabel}</dd></div>
+    </dl>
+
+    <!-- Detalle de gastos: plegado en móvil, siempre abierto en escritorio -->
+    <details class="group order-4 border-b border-line py-2 sm:order-3 sm:border-b-0 sm:py-4" data-receipt-lines>
+      <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 font-bold text-accent sm:hidden [&::-webkit-details-marker]:hidden">
+        <span>Ver el detalle de los gastos ({lineCount})</span>
+        <span aria-hidden="true" class="text-2xl leading-none transition-transform group-open:rotate-45">+</span>
+      </summary>
+      <div class="flex flex-col gap-4 pb-2 pt-2 sm:pt-0">
+        {
+          r.sections.map((s) => (
+            <div>
+              <h3 class="mb-1 text-sm font-bold uppercase tracking-[0.06em] text-accent">{s.title}</h3>
+              <ul class="flex flex-col divide-y divide-line/60 sm:divide-y-0">
+                {s.lines.map((l) => (
+                  <li class="flex items-baseline justify-between gap-3 py-2 sm:py-1">
+                    <span class="min-w-0">
+                      {l.concept}
+                      {l.buildingLabel && <span class="hidden text-sm text-ink-muted sm:block">Total del condominio: {l.buildingLabel}</span>}
+                    </span>
+                    <span class="tabular shrink-0 font-bold">{l.unitLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+      </div>
+    </details>
+
+    <!-- Totales: en móvil van justo después de los datos (lo primero que se busca) -->
+    <dl class="order-3 flex flex-col gap-1 py-4 sm:order-4 sm:border-t sm:border-line sm:pb-0">
+      <div class="flex justify-between gap-3"><dt>Total del mes</dt><dd class="tabular font-bold">{r.monthTotalLabel}</dd></div>
+      {
+        r.previousDebtLabel && (
+          <div class="flex justify-between gap-3 text-warning">
+            <dt>Deuda anterior ({r.previousDebtCount} {r.previousDebtCount === 1 ? 'pendiente' : 'pendientes'})</dt>
+            <dd class="tabular font-bold">{r.previousDebtLabel}</dd>
+          </div>
+        )
+      }
+      <div class="mt-2 flex flex-wrap items-end justify-between gap-3 rounded-[var(--radius-control)] bg-accent-tint px-4 py-3">
+        <dt class="text-lg font-bold text-accent-strong">Total a pagar</dt>
+        <dd class="text-right">
+          <span class="font-display block text-3xl font-semibold text-accent-strong">{r.totalDueLabel}</span>
+          {r.totalDueVesLabel && <span class="tabular font-bold">{r.totalDueVesLabel}</span>}
+        </dd>
+      </div>
+      {r.rateLabel && <p class="mt-2 text-sm text-ink-muted">{r.rateLabel} Si paga en bolívares, use la tasa BCV del día del pago.</p>}
+    </dl>
+
+    <div class="order-5 flex flex-col gap-4 pt-4">
+      {r.notes.length > 0 && <div class="flex flex-col gap-1">{r.notes.map((n) => <p class="font-bold">{n}</p>)}</div>}
+      {
+        r.paymentLines.length > 0 && (
+          <div id="como-pagar" class="scroll-mt-4 rounded-[var(--radius-control)] bg-sunken px-4 py-3">
+            <h3 class="mb-1 text-sm font-bold uppercase tracking-[0.06em] text-ink-muted">Cómo pagar</h3>
+            <ul class="flex flex-col gap-2 sm:gap-0">
+              {r.paymentLines.map((l) => <li class="break-words">{l}</li>)}
+            </ul>
+          </div>
+        )
+      }
+      <!-- Descarga en móvil: al final de la hoja, discreta pero fácil de tocar -->
+      <a href={r.downloadHref} download class="inline-flex min-h-12 items-center justify-center gap-2 rounded-[var(--radius-control)] text-base font-bold text-accent no-underline ring-1 ring-line hover:bg-sunken sm:hidden">
+        <Icon name="download" size={18} /> Descargar este recibo (PDF)
+      </a>
+    </div>
+  </article>
+</section>
+
+<script>
+  // En pantallas grandes el detalle siempre está abierto; en el teléfono empieza plegado.
+  const wide = window.matchMedia('(min-width: 640px)');
+  const sync = () => {
+    for (const d of document.querySelectorAll<HTMLDetailsElement>('[data-receipt-lines]')) if (wide.matches) d.open = true;
+  };
+  sync();
+  wide.addEventListener('change', sync);
+</script>

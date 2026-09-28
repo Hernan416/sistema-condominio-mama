@@ -39,10 +39,14 @@ export class InvoiceService {
     return this.invoices.saveGenerated({ houseId, period, detail: breakdown, rate: exchangeRate, header, issuedAt: new Date() });
   }
 
-  /** PDF del recibo más reciente de la casa del residente (null si aún no hay ninguno). */
-  async latestPdfForHouse(houseId: string): Promise<InvoicePdf | null> {
-    const invoice = await this.invoices.findLatestAvailableForHouse(houseId);
-    return invoice ? this.renderIssued(invoice) : null;
+  /**
+   * PDF de un recibo de la casa del residente: el indicado (solo si es de SU casa) o, sin id,
+   * el más reciente. null si no hay ninguno.
+   */
+  async pdfForResident(houseId: string, invoiceId: string | null = null): Promise<InvoicePdf | null> {
+    const invoice = invoiceId ? await this.invoices.findById(invoiceId) : await this.invoices.findLatestAvailableForHouse(houseId);
+    if (!invoice || invoice.houseId !== houseId || invoice.status === 'pending') return null;
+    return this.renderIssued(invoice);
   }
 
   /**

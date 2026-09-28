@@ -1,15 +1,19 @@
 import type { APIRoute } from 'astro';
 import { getInvoiceService } from '@/services/container';
 import { attachmentHeader } from '@/utils/http';
+import { isUuid } from '@/utils/validation';
 
 /**
- * Descarga directa al dispositivo del residente: el servidor dibuja el PDF de su último
+ * Descarga directa al dispositivo del residente: el servidor dibuja el PDF de su
  * recibo a partir de los datos guardados y lo entrega con Content-Disposition: attachment.
  */
-export const GET: APIRoute = async ({ locals, redirect }) => {
+export const GET: APIRoute = async ({ locals, redirect, url }) => {
   const resident = locals.resident!;
+  // ?recibo=<id> descarga ese recibo (solo si es de su casa); sin parámetro, el más reciente.
+  const requested = url.searchParams.get('recibo');
+  const invoiceId = requested && isUuid(requested) ? requested : null;
   try {
-    const result = await getInvoiceService().latestPdfForHouse(resident.houseId);
+    const result = await getInvoiceService().pdfForResident(resident.houseId, invoiceId);
     if (!result) return redirect('/dashboard', 303);
 
     return new Response(result.pdf as BodyInit, {

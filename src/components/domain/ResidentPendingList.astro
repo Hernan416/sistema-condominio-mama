@@ -1,0 +1,43 @@
+---
+// "Lo que debe, en detalle": cada recibo o deuda pendiente, del más antiguo al más reciente
+// (el orden en que se van pagando).
+import type { ResidentDashboardView } from '@/adapters/residentDashboardAdapter';
+
+interface Props {
+  pending: ResidentDashboardView['pending'];
+}
+
+const { pending } = Astro.props;
+const tone = { done: 'bg-accent-tint text-accent-strong', warning: 'bg-warning-tint text-warning', danger: 'bg-danger-tint text-danger', default: 'bg-sunken text-ink' };
+---
+
+<section id="debo" aria-labelledby="pending-heading" class="scroll-mt-4">
+  <h2 id="pending-heading" class="font-display mb-1 text-3xl font-semibold">Lo que debe, en detalle</h2>
+  <p class="mb-3 text-lg text-ink-muted">Cuando paga, se descuenta primero lo más antiguo.</p>
+  <ol class="flex flex-col gap-3">
+    {
+      pending.map((p, i) => (
+        <li class="rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-bold text-ink-muted">{i === 0 ? 'Se paga primero' : `${i + 1}.º en pagarse`}</p>
+              <p class="text-xl font-bold">{p.label}</p>
+              <p class="text-base text-ink-muted">{p.kindLabel} · {p.ageLabel}</p>
+              {p.detail && <p class="mt-1 text-base">{p.detail}</p>}
+            </div>
+            <span class:list={['inline-flex shrink-0 rounded-full px-3 py-1 text-base font-bold', tone[p.status.tone]]}>{p.status.label}</span>
+          </div>
+          <dl class="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 text-base">
+            <div><dt class="text-ink-muted">Monto</dt><dd class="tabular font-bold">{p.amountLabel}</dd></div>
+            <div><dt class="text-ink-muted">Abonado</dt><dd class="tabular font-bold">{p.paidLabel ?? '$ 0,00'}</dd></div>
+            <div><dt class="text-ink-muted">Falta</dt><dd class="tabular text-lg font-bold text-warning">{p.outstandingLabel}</dd></div>
+          </dl>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+            {p.outstandingVesLabel && <p class="text-base text-ink-muted">Hoy en bolívares: <strong class="text-ink">{p.outstandingVesLabel}</strong></p>}
+            {p.previewHref && <a href={p.previewHref} class="text-base font-bold text-accent">Ver este recibo</a>}
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+</section>

@@ -1,30 +1,132 @@
 ---
+// Pantalla del residente: estado de cuenta de hoy, su recibo (vista previa + descarga discreta),
+// lo que debe en detalle, su historial de recibos, deudas y pagos, y los datos de su casa.
 import ResidentLayout from '@/layouts/ResidentLayout.astro';
-import InvoiceDownloadPanel from '@/components/domain/InvoiceDownloadPanel.astro';
-import ResidentAccountCard from '@/components/domain/ResidentAccountCard.astro';
+import ResidentStatusCard from '@/components/domain/ResidentStatusCard.astro';
+import ReceiptPreview from '@/components/domain/ReceiptPreview.astro';
+import ResidentPendingList from '@/components/domain/ResidentPendingList.astro';
+import ResidentHistory from '@/components/domain/ResidentHistory.astro';
+import Icon from '@/components/ui/Icon.astro';
+import Greeting from '@/components/ui/Greeting.astro';
 import { getAccountService, getAppName, getInvoiceService } from '@/services/container';
-import { toResidentInvoiceView } from '@/adapters/invoiceViewAdapter';
-import { toResidentAccountView, toResidentPaymentState } from '@/adapters/residentAccountViewAdapter';
+import { toResidentDashboardView } from '@/adapters/residentDashboardAdapter';
+import { isoDateInCaracas } from '@/utils/dates';
 
 // El middleware garantiza que existe la sesión.
 const resident = Astro.locals.resident!;
-const [{ condominium, invoice, exchangeRate }, account] = await Promise.all([
+const [{ condominium, exchangeRate }, account] = await Promise.all([
   getInvoiceService().residentOverview(resident.houseId, resident.condominiumId),
   getAccountService().residentAccount(resident.houseId, resident.condominiumId),
 ]);
-const invoiceState = invoice ? (account?.charges.find((c) => c.id === invoice.id) ?? null) : null;
+const view = account
+  ? toResidentDashboardView({ account, selectedInvoiceId: Astro.url.searchParams.get('recibo'), todayRate: exchangeRate, today: isoDateInCaracas(new Date()) })
+  : null;
+
+// Barra inferior del teléfono: 4 destinos, con icono y palabra corta.
+const hasPending = (view?.pending.length ?? 0) > 0;
+const tabs = [
+  { href: '#hoy', label: 'Hoy', icon: 'home' as const },
+  ...(view?.preview ? [{ href: '#recibo', label: 'Recibo', icon: 'receipt' as const }] : []),
+  hasPending ? { href: '#debo', label: 'Debo', icon: 'alert' as const } : { href: '#recibos', label: 'Recibos', icon: 'clock' as const },
+  { href: '#pagos', label: 'Pagos', icon: 'cash' as const },
+];
+
+const jump = [
+  { href: '#recibo', label: 'Mi recibo', show: !!view?.preview },
+  { href: '#debo', label: 'Lo que debo', show: (view?.pending.length ?? 0) > 0 },
+  { href: '#recibos', label: 'Mis recibos', show: true },
+  { href: '#pagos', label: 'Mis pagos', show: true },
+].filter((j) => j.show);
 ---
 
-<ResidentLayout title="Mi factura" appName={getAppName()}>
+<ResidentLayout title="Mi cuenta" appName={getAppName()}>
   <div slot="hero">
-    <p class="text-xl text-night-muted">{condominium?.name ?? 'Su conjunto'}</p>
+    <p class="text-xl text-night-muted">{condominium?.name ?? 'Su conjunto'} · <Greeting name={null} /></p>
     <h1 class="font-display text-5xl font-semibold sm:text-6xl">Casa {resident.houseNumber}</h1>
+    {view?.ownerName && <p class="mt-1 text-xl text-night-muted">{view.ownerName}</p>}
   </div>
 
-  <InvoiceDownloadPanel
-    invoice={invoice ? toResidentInvoiceView(invoice, exchangeRate) : null}
-    payment={toResidentPaymentState(invoiceState, exchangeRate)}
-    downloadHref="/api/invoices/download"
-  />
-  {account && <ResidentAccountCard account={toResidentAccountView(account, exchangeRate)} />}
+  {
+    view ? (
+      <div class="flex flex-col gap-10">
+        <div id="hoy" class="scroll-mt-4">
+          <ResidentStatusCard status={view.status} todayRateLabel={view.todayRateLabel} receiptHref={view.preview ? '#recibo' : null} />
+        </div>
+
+        <nav aria-label="Ir a" class="-mt-4 hidden flex-wrap gap-2 sm:flex">
+          {jump.map((j) => (
+            <a href={j.href} class="inline-flex min-h-12 items-center rounded-full bg-surface px-4 text-lg font-bold text-ink no-underline ring-1 ring-line hover:ring-line-strong">
+              {j.label}
+            </a>
+          ))}
+        </nav>
+
+        {view.preview ? (
+          <ReceiptPreview receipt={view.preview} />
+        ) : (
+          <section class="flex flex-col items-start gap-4 rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
+            <span class="inline-flex size-14 items-center justify-center rounded-2xl bg-warning-tint text-warning"><Icon name="clock" size={30} /></span>
+            <h2 class="font-display text-3xl font-semibold">Su recibo aún no está listo</h2>
+            <p class="text-xl text-ink-muted">La administración lo publicará pronto. Vuelva a entrar en unos días.</p>
+          </section>
+        )}
+
+        {view.pending.length > 0 && <ResidentPendingList pending={view.pending} />}
+
+        <ResidentHistory receipts={view.receipts} debts={view.debts} payments={view.payments} />
+
+        <section aria-labelledby="house-heading" class="rounded-[var(--radius-card)] bg-surface p-6 ring-1 ring-line">
+          <h2 id="house-heading" class="font-display mb-3 text-2xl font-semibold">Datos de su casa</h2>
+          <dl class="grid grid-cols-2 gap-4 text-lg">
+            <div><dt class="text-base text-ink-muted">Casa</dt><dd class="font-bold">{view.houseNumber}</dd></div>
+            <div><dt class="text-base text-ink-muted">Alícuota (su parte de los gastos)</dt><dd class="font-bold">{view.aliquotLabel}</dd></div>
+            <div class="col-span-2"><dt class="text-base text-ink-muted">Propietario</dt><dd class="font-bold">{view.ownerName ?? '—'}</dd></div>
+          </dl>
+          <p class="mt-4 text-base text-ink-muted">¿Algún dato está mal? Avísele a la administración para corregirlo.</p>
+        </section>
+        <!-- Espacio para que la barra inferior no tape el final (solo teléfono). -->
+        <div class="h-20 sm:hidden" aria-hidden="true"></div>
+      </div>
+    ) : (
+      <section class="rounded-[var(--radius-card)] bg-surface p-6 text-xl ring-1 ring-line">No encontramos su casa. Hable con la administración.</section>
+    )
+  }
+  {
+    view && (
+      <nav
+        aria-label="Secciones"
+        class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_-12px_rgb(0_0_0/0.25)] backdrop-blur sm:hidden"
+        data-bottom-nav
+      >
+        <ul class:list={['mx-auto grid max-w-md', tabs.length === 4 ? 'grid-cols-4' : 'grid-cols-3']}>
+          {tabs.map((t) => (
+            <li>
+              <a href={t.href} data-target={t.href.slice(1)} class="flex min-h-16 flex-col items-center justify-center gap-0.5 text-sm font-bold text-ink-muted no-underline aria-[current=true]:text-accent">
+                <Icon name={t.icon} size={24} />
+                {t.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
 </ResidentLayout>
+
+<script>
+  // Marca en la barra inferior la sección que se está viendo.
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-bottom-nav] a')];
+  const sections = links.map((a) => document.getElementById(a.dataset.target ?? '')).filter((el): el is HTMLElement => !!el);
+  const mark = (id: string) => links.forEach((a) => a.setAttribute('aria-current', String(a.dataset.target === id)));
+  if (sections.length) {
+    mark(sections[0].id);
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) mark(visible.target.id);
+      },
+      { rootMargin: '-35% 0px -55% 0px' },
+    );
+    sections.forEach((s) => io.observe(s));
+  }
+</script>

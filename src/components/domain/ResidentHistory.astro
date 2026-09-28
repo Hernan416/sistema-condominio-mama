@@ -1,0 +1,109 @@
+---
+// Historial del residente: sus recibos (con estado, ver y descargar), las deudas que registró
+// la administración y todos sus pagos. Las listas largas muestran lo último y el resto plegado.
+import Icon from '@/components/ui/Icon.astro';
+import type { ResidentDashboardView } from '@/adapters/residentDashboardAdapter';
+
+interface Props {
+  receipts: ResidentDashboardView['receipts'];
+  debts: ResidentDashboardView['debts'];
+  payments: ResidentDashboardView['payments'];
+}
+
+const { receipts, debts, payments } = Astro.props;
+const tone = { done: 'bg-accent-tint text-accent-strong', warning: 'bg-warning-tint text-warning', danger: 'bg-danger-tint text-danger', default: 'bg-sunken text-ink' };
+const FIRST = 6;
+const card = 'rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line';
+---
+
+<section id="recibos" aria-labelledby="receipts-heading" class="scroll-mt-4">
+  <h2 id="receipts-heading" class="font-display mb-1 text-3xl font-semibold">Mis recibos</h2>
+  <p class="mb-3 text-lg text-ink-muted">Toque «Ver» para mirar un recibo aquí mismo.</p>
+  {
+    receipts.length === 0 ? (
+      <p class:list={[card, 'p-5 text-lg text-ink-muted']}>Todavía no tiene recibos emitidos.</p>
+    ) : (
+      <ul class:list={[card, 'divide-y divide-line']}>
+        {receipts.map((r, i) => (
+          <li class:list={['flex flex-wrap items-center justify-between gap-3 px-5 py-4', r.selected && 'bg-accent-tint/60']} data-extra={i >= FIRST ? 'receipts' : undefined} hidden={i >= FIRST}>
+            <div class="min-w-0">
+              <p class="text-xl font-bold">{r.periodLabel}{r.selected && <span class="ml-2 text-base font-normal text-accent-strong">(el que está viendo)</span>}</p>
+              <p class="text-base text-ink-muted">
+                {r.amountLabel}
+                {r.outstandingLabel ? ` · falta ${r.outstandingLabel}` : ''}
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class:list={['rounded-full px-3 py-1 text-base font-bold', tone[r.status.tone]]}>{r.status.label}</span>
+              {!r.selected && <a href={r.previewHref} class="inline-flex min-h-11 items-center rounded-full px-3 text-base font-bold text-accent no-underline hover:bg-sunken">Ver</a>}
+              <a href={r.downloadHref} download aria-label={`Descargar recibo de ${r.periodLabel}`} title="Descargar PDF" class="inline-flex size-11 items-center justify-center rounded-full text-ink-muted hover:bg-sunken hover:text-ink">
+                <Icon name="download" size={20} />
+              </a>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  {receipts.length > FIRST && <button type="button" data-show="receipts" class="mt-3 min-h-11 cursor-pointer text-lg font-bold text-accent">Ver los {receipts.length - FIRST} recibos anteriores</button>}
+</section>
+
+{
+  debts.length > 0 && (
+    <section aria-labelledby="debts-heading">
+      <h2 id="debts-heading" class="font-display mb-1 text-3xl font-semibold">Deudas registradas</h2>
+      <p class="mb-3 text-lg text-ink-muted">Montos que la administración anotó aparte de los recibos (saldos anteriores, multas, reparaciones…).</p>
+      <ul class:list={[card, 'divide-y divide-line']}>
+        {debts.map((d) => (
+          <li class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div class="min-w-0">
+              <p class="text-xl font-bold">{d.concept}</p>
+              <p class="text-base text-ink-muted">Desde el {d.dateLabel} · {d.amountLabel}</p>
+              {d.detail && <p class="text-base">{d.detail}</p>}
+            </div>
+            <span class:list={['rounded-full px-3 py-1 text-base font-bold', tone[d.status.tone]]}>{d.status.label}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+<section id="pagos" aria-labelledby="payments-heading" class="scroll-mt-4">
+  <h2 id="payments-heading" class="font-display mb-1 text-3xl font-semibold">Mis pagos</h2>
+  <p class="mb-3 text-lg text-ink-muted">Los que ya registró la administración.</p>
+  {
+    payments.length === 0 ? (
+      <p class:list={[card, 'p-5 text-lg text-ink-muted']}>Todavía no hay pagos registrados.</p>
+    ) : (
+      <ul class:list={[card, 'divide-y divide-line']}>
+        {payments.map((p, i) => (
+          <li class="px-5 py-4" data-extra={i >= FIRST ? 'payments' : undefined} hidden={i >= FIRST}>
+            <div class="flex flex-wrap items-baseline justify-between gap-3">
+              <p class="text-xl font-bold">{p.dateLabel}</p>
+              <p class="tabular text-xl font-bold text-accent-strong">{p.amountLabel}</p>
+            </div>
+            <p class="text-base text-ink-muted">
+              {p.methodLabel}
+              {p.reference ? ` · Ref. ${p.reference}` : ''}
+              {p.vesLabel ? ` · ${p.vesLabel}` : ''}
+            </p>
+            <p class="text-base">{p.coveredLabel}</p>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  {payments.length > FIRST && <button type="button" data-show="payments" class="mt-3 min-h-11 cursor-pointer text-lg font-bold text-accent">Ver los {payments.length - FIRST} pagos anteriores</button>}
+  <p class="mt-4 text-lg text-ink-muted">¿Pagó y no aparece aquí? Envíe el comprobante a la administración.</p>
+</section>
+
+<script>
+  // "Ver anteriores": muestra el resto de la lista y quita el botón.
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('[data-show]')) {
+    btn.addEventListener('click', () => {
+      for (const el of document.querySelectorAll<HTMLElement>(`[data-extra="${btn.dataset.show}"]`)) el.hidden = false;
+      btn.remove();
+    });
+  }
+</script>
