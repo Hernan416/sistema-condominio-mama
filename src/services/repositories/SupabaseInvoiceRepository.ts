@@ -5,7 +5,8 @@ import type { BillingPeriod, Invoice } from '@/types/domain';
 import type { InvoiceRepository } from '@/services/contracts';
 
 const INVOICE_COLUMNS =
-  'id, house_id, month, year, amount, exchange_rate, exchange_rate_date, status, generated_at, paid_at, detail, houses(number)';
+  'id, house_id, month, year, amount, exchange_rate, exchange_rate_date, exchange_rate_source, status, generated_at, paid_at, detail, issued_condominium_name, issued_house_number, issued_owner_name, issued_owner_document, issued_receipt_number, ' +
+  'issued_rif, issued_address, issued_administrator_name, issued_administrator_rif, issued_payment_instructions, houses(number)';
 
 export class SupabaseInvoiceRepository implements InvoiceRepository {
   constructor(private readonly db: SupabaseClient) {}

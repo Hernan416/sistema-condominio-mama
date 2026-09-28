@@ -91,6 +91,18 @@ create table if not exists public.invoices (
   -- Tasa BCV (Bs. por USD) del día de emisión, y fecha en que el BCV la publicó.
   exchange_rate       numeric(14, 4) check (exchange_rate is null or exchange_rate > 0),
   exchange_rate_date  date,
+  exchange_rate_source text,            -- "BCV"
+  -- Encabezado congelado al emitir: el PDF sale idéntico aunque luego cambien estos datos.
+  issued_condominium_name      text,
+  issued_house_number          text,
+  issued_owner_name            text,
+  issued_owner_document        text,
+  issued_receipt_number        text,
+  issued_rif                   text,
+  issued_address               text,
+  issued_administrator_name    text,
+  issued_administrator_rif     text,
+  issued_payment_instructions  text,
   status          public.invoice_status not null default 'pending',
   generated_at    timestamptz,
   paid_at         timestamptz,

@@ -16,7 +16,7 @@ Pensado para condominios de **Isla de Margarita, Venezuela**:
 - Fechas y "mes actual" en hora de Caracas (Vercel corre en UTC).
 - Modo claro por defecto, con modo oscuro opcional (se recuerda en una cookie).
 
-**Recibos sin archivos:** emitir un recibo guarda en la base su desglose, la tasa y la fecha. El PDF se dibuja al momento cada vez que el residente lo descarga o el panel lo abre (`/api/invoices/download`, `/api/admin/recibos/:id`), siempre idéntico porque sale de esos datos congelados.
+**Recibos sin archivos:** emitir un recibo guarda en la base su desglose, la tasa y la fecha. El PDF se dibuja al momento cada vez que el residente lo descarga o el panel lo abre (`/api/invoices/download`, `/api/admin/recibos/:id`), siempre idéntico: al emitir se congela TODO lo que imprime (desglose y montos, tasa BCV y por tanto los Bs., fecha, número, condominio, RIF, dirección, administradora, cuentas para pagar, casa, dueño y cédula). Editar después esos datos no cambia los recibos ya emitidos; para reflejar un cambio hay que volver a emitir.
 
 ## Desarrollo local (sin Supabase)
 
@@ -76,7 +76,7 @@ SESSION_SECRET=...         # obligatorio en producción
 
 Ningún archivo de código cambia: `src/services/container.ts` elige la implementación.
 
-1. **Supabase** → SQL Editor: ejecuta `supabase/migrations/0001_init.sql` y (solo en desarrollo) `supabase/seed.sql`. El script se puede volver a ejecutar sobre una base ya creada: agrega las tablas `payments` y `house_debts` y las columnas nuevas sin borrar datos. Si la base se creó con la versión que usaba Google Drive, ejecuta también `supabase/migrations/0002_remove_file_storage.sql` (quita `drive_file_id` y `drive_file_url`).
+1. **Supabase** → SQL Editor: ejecuta `supabase/migrations/0001_init.sql` y (solo en desarrollo) `supabase/seed.sql`. El script se puede volver a ejecutar sobre una base ya creada: agrega las tablas `payments` y `house_debts` y las columnas nuevas sin borrar datos. Si la base se creó con la versión que usaba Google Drive, ejecuta también, en orden, `0002_remove_file_storage.sql` (quita `drive_file_id` y `drive_file_url`) y `0003_freeze_receipt_header.sql` (congela el encabezado de los recibos).
 2. **Administradores**: créalos en Authentication → Users y dales acceso a sus condominios:
    ```sql
    insert into public.condominium_admins (user_id, condominium_id)

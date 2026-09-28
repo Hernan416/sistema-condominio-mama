@@ -4,6 +4,7 @@ import { demoBillingSheet, demoCondominiumSettings } from '@/services/local/loca
 import type { LocalDatabase } from '@/services/local/localSchema';
 import { equalAliquots } from '@/utils/billingCalculator';
 import { currentPeriod } from '@/utils/months';
+import { receiptNumber } from '@/utils/dueDate';
 
 export const MIGRATIONS: Record<number, (db: Record<string, unknown>) => void> = {
   // v4 → v5: tasa de cambio diaria persistida.
@@ -69,6 +70,31 @@ export const MIGRATIONS: Record<number, (db: Record<string, unknown>) => void> =
     for (const inv of db.invoices) {
       delete inv.drive_file_id;
       delete inv.drive_file_url;
+    }
+  },
+  // v9 → v10: cada recibo emitido congela su encabezado (condominio, RIF, cuentas, dueño,
+  // cédula, número, fuente de la tasa). Los ya emitidos toman los datos de hoy, que es lo más
+  // cercano a como estaban; desde aquí ya no cambian.
+  9: (raw) => {
+    const db = raw as unknown as LocalDatabase;
+    for (const inv of db.invoices) {
+      if (inv.status === 'pending' || inv.issued_condominium_name) continue;
+      const house = db.houses.find((h) => h.id === inv.house_id);
+      const condo = house ? db.condominiums.find((c) => c.id === house.condominium_id) : undefined;
+      if (!house || !condo) continue;
+      Object.assign(inv, {
+        issued_condominium_name: condo.name,
+        issued_house_number: house.number,
+        issued_owner_name: house.owner_name ?? null,
+        issued_owner_document: house.owner_document ?? null,
+        issued_receipt_number: receiptNumber({ month: inv.month, year: inv.year }, house.number),
+        issued_rif: condo.rif ?? null,
+        issued_address: condo.address ?? null,
+        issued_administrator_name: condo.administrator_name ?? null,
+        issued_administrator_rif: condo.administrator_rif ?? null,
+        issued_payment_instructions: condo.payment_instructions ?? null,
+        exchange_rate_source: inv.exchange_rate == null ? null : 'BCV',
+      });
     }
   },
 };

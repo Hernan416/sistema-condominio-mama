@@ -10,6 +10,7 @@ import type {
   House,
   Invoice,
   PinVerificationResult,
+  ReceiptHeaderSettings,
 } from '@/types/domain';
 import type { BillingSheet, InvoiceBreakdown } from '@/types/billing';
 import type { HouseUpdate } from '@/adapters/houseAdapter';
@@ -117,7 +118,7 @@ export interface InvoiceDocumentData {
   month: number;
   year: number;
   ownerDocument: string | null;
-  settings: CondominiumSettings;
+  settings: ReceiptHeaderSettings;
   detail: InvoiceBreakdown;
   /** Tasa del día de emisión; null si no se pudo obtener (el PDF muestra solo USD). */
   exchangeRate: ExchangeRate | null;

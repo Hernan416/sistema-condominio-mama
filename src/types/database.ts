@@ -71,6 +71,18 @@ export interface InvoiceRow {
   generated_at: string | null;
   paid_at: string | null;
   detail: unknown | null; // jsonb con el InvoiceBreakdown emitido
+  // Encabezado congelado al emitir (null en recibos anteriores).
+  issued_condominium_name?: string | null;
+  issued_house_number?: string | null;
+  issued_owner_name?: string | null;
+  issued_owner_document?: string | null;
+  issued_receipt_number?: string | null;
+  issued_rif?: string | null;
+  issued_address?: string | null;
+  issued_administrator_name?: string | null;
+  issued_administrator_rif?: string | null;
+  issued_payment_instructions?: string | null;
+  exchange_rate_source?: string | null;
   houses?: { number: string } | null; // join opcional
 }
 

@@ -94,6 +94,26 @@ export interface Invoice extends BillingPeriod {
   paidAt: Date | null;
   /** Desglose con el que se emitió (null en facturas anteriores a este formato). */
   detail: InvoiceBreakdown | null;
+  /** Encabezado tal como estaba al emitir (null en recibos anteriores a este cambio). */
+  issued: IssuedReceiptHeader | null;
+}
+
+/** Datos del condominio que imprime el recibo. */
+export type ReceiptHeaderSettings = Pick<CondominiumSettings, 'rif' | 'address' | 'administratorName' | 'administratorRif' | 'paymentInstructions'>;
+
+/**
+ * Todo lo que el recibo imprime y NO está en el desglose, congelado el día de emisión:
+ * así el PDF sale idéntico aunque luego cambien el dueño, el RIF, las cuentas o la tasa.
+ */
+export interface IssuedReceiptHeader {
+  condominiumName: string;
+  houseNumber: string;
+  ownerName: string | null;
+  ownerDocument: string | null;
+  receiptNumber: string;
+  settings: ReceiptHeaderSettings;
+  /** Fuente de la tasa ("BCV"); el valor y la fecha están en exchangeRate / exchangeRateDate. */
+  exchangeRateSource: string | null;
 }
 
 /** Fila del panel admin: una casa con su factura del periodo (si existe). */

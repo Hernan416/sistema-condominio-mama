@@ -1,4 +1,4 @@
-import type { BillingPeriod, Condominium, Invoice } from '@/types/domain';
+import type { BillingPeriod, Condominium, CondominiumSettings, House, Invoice, IssuedReceiptHeader } from '@/types/domain';
 import type { CondominiumRepository, CurrentExchangeRate, HouseRepository, InvoicePdfRenderer, InvoiceRepository } from '@/services/contracts';
 import type { BillingService } from '@/services/billing/BillingService';
 import { NotFoundError } from '@/services/errors';
@@ -29,11 +29,14 @@ export class InvoiceService {
   ) {}
 
   async generate(condominium: Condominium, houseId: string, period: BillingPeriod): Promise<Invoice> {
-    const [{ breakdown }, exchangeRate] = await Promise.all([
+    const [{ house, breakdown }, full, exchangeRate] = await Promise.all([
       this.billing.breakdownFor(condominium, period, houseId),
+      this.condominiums.findWithSettings(condominium.id),
       this.exchangeRates.current(),
     ]);
-    return this.invoices.saveGenerated({ houseId, period, detail: breakdown, rate: exchangeRate });
+    // Foto del recibo en este instante: montos (desglose), tasa y encabezado quedan congelados.
+    const header = headerOf(full?.name ?? condominium.name, house, full?.settings ?? DEFAULT_SETTINGS, receiptNumber(period, house.number), exchangeRate?.source ?? null);
+    return this.invoices.saveGenerated({ houseId, period, detail: breakdown, rate: exchangeRate, header, issuedAt: new Date() });
   }
 
   /** PDF del recibo más reciente de la casa del residente (null si aún no hay ninguno). */
@@ -64,31 +67,54 @@ export class InvoiceService {
   }
 
   /**
-   * Dibuja el PDF de un recibo emitido. Montos, líneas, deuda y tasa salen del desglose
-   * congelado al emitir (no cambian aunque luego se editen los gastos); el encabezado usa
-   * los datos actuales del condominio y del propietario.
+   * Dibuja el PDF de un recibo emitido SOLO con lo que se congeló al emitir: desglose, tasa
+   * (y por tanto los Bs.), fecha y encabezado (condominio, RIF, cuentas, dueño, cédula).
+   * Nada de lo que se edite después lo cambia. Los recibos emitidos antes de guardar el
+   * encabezado usan los datos actuales como respaldo.
    */
   private async renderIssued(invoice: Invoice): Promise<InvoicePdf> {
     if (invoice.status === 'pending' || !invoice.detail) throw new NotFoundError('Este recibo todavía no se ha emitido');
-    const house = await this.houses.findById(invoice.houseId);
-    if (!house) throw new NotFoundError('Recibo no encontrado');
-    const condominium = await this.condominiums.findWithSettings(house.condominiumId);
-    if (!condominium) throw new NotFoundError('Recibo no encontrado');
+    const header = invoice.issued ?? (await this.currentHeaderFor(invoice));
 
-    const period = { month: invoice.month, year: invoice.year };
     const pdf = await this.pdf.render({
-      condominiumName: condominium.name,
-      houseNumber: house.number,
-      ownerName: house.ownerName,
-      ownerDocument: house.ownerDocument,
+      condominiumName: header.condominiumName,
+      houseNumber: header.houseNumber,
+      ownerName: header.ownerName,
+      ownerDocument: header.ownerDocument,
       month: invoice.month,
       year: invoice.year,
-      settings: condominium.settings ?? DEFAULT_SETTINGS,
+      settings: header.settings,
       detail: invoice.detail,
       exchangeRate: issuedRateOf(invoice),
-      receiptNumber: receiptNumber(period, house.number),
+      receiptNumber: header.receiptNumber,
       issuedAt: invoice.generatedAt ?? new Date(),
     });
-    return { invoice, pdf, fileName: invoiceFileName(house.number, invoice.month, invoice.year) };
+    return { invoice, pdf, fileName: invoiceFileName(header.houseNumber, invoice.month, invoice.year) };
   }
+
+  /** Respaldo para recibos emitidos antes de congelar el encabezado. */
+  private async currentHeaderFor(invoice: Invoice): Promise<IssuedReceiptHeader> {
+    const house = await this.houses.findById(invoice.houseId);
+    const condominium = house ? await this.condominiums.findWithSettings(house.condominiumId) : null;
+    if (!house || !condominium) throw new NotFoundError('Recibo no encontrado');
+    return headerOf(condominium.name, house, condominium.settings, receiptNumber({ month: invoice.month, year: invoice.year }, house.number), null);
+  }
+}
+
+function headerOf(condominiumName: string, house: House, settings: CondominiumSettings, number: string, rateSource: string | null): IssuedReceiptHeader {
+  return {
+    condominiumName,
+    houseNumber: house.number,
+    ownerName: house.ownerName,
+    ownerDocument: house.ownerDocument,
+    receiptNumber: number,
+    settings: {
+      rif: settings.rif,
+      address: settings.address,
+      administratorName: settings.administratorName,
+      administratorRif: settings.administratorRif,
+      paymentInstructions: settings.paymentInstructions,
+    },
+    exchangeRateSource: rateSource,
+  };
 }
