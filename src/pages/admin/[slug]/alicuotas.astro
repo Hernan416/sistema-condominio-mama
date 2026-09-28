@@ -1,0 +1,27 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import UnitsEditor from '@/components/domain/UnitsEditor';
+import { getAppName, getCondominiumService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { toUnitDto } from '@/adapters/invoiceDtoAdapter';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+const service = getCondominiumService();
+const [units, full] = await Promise.all([service.listUnits(condominium), service.getWithSettings(condominium)]);
+---
+
+<AdminLayout title={`Alícuotas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="alicuotas"
+    rate={toExchangeRateView(rate)}
+    description="Alícuota de cada casa, a mano o calculada con tipos (&quot;Casa pequeña&quot;, &quot;Casa grande&quot;…). Los datos del propietario están en Casas y cuentas."
+  />
+  <UnitsEditor client:load condominiumSlug={condominium.slug} initialUnits={units.map(toUnitDto)} initialScheme={full.aliquotScheme} />
+</AdminLayout>

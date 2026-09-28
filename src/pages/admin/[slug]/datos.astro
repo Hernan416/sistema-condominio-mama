@@ -1,0 +1,28 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import CondominiumSettingsForm from '@/components/domain/CondominiumSettingsForm.astro';
+import { getAppName, getCondominiumService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+const full = await getCondominiumService().getWithSettings(condominium);
+
+const saved = Astro.url.searchParams.get('guardado') === '1';
+const error = Astro.url.searchParams.get('error')?.slice(0, 200) ?? null;
+---
+
+<AdminLayout title={`Datos · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="datos"
+    rate={toExchangeRateView(rate)}
+    description="Información legal y de pago que aparece en cada recibo, y los valores por defecto de facturación."
+  />
+  <CondominiumSettingsForm condominium={full} saved={saved} error={error} />
+</AdminLayout>

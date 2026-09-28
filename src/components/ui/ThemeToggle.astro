@@ -1,0 +1,64 @@
+---
+// Interruptor claro/oscuro. Guarda la preferencia en una cookie para que el servidor
+// pinte el tema correcto desde el primer cuadro. Muestra la acción, no el estado:
+// en claro ofrece "Modo oscuro" (luna) y viceversa.
+import Icon from '@/components/ui/Icon.astro';
+
+interface Props {
+  /** "night": sobre el panel oscuro de marca; "surface": sobre fondos del tema. */
+  tone?: 'night' | 'surface';
+  showLabel?: boolean;
+  class?: string;
+}
+
+const { tone = 'surface', showLabel = false, class: className } = Astro.props;
+---
+
+<button
+  type="button"
+  data-theme-toggle
+  aria-label="Cambiar a modo oscuro"
+  class:list={[
+    'inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-2 rounded-full font-bold transition-colors',
+    showLabel ? 'px-4 text-base' : 'text-base',
+    tone === 'night'
+      ? 'text-night-muted hover:bg-night-raised hover:text-night-ink'
+      : 'text-ink-muted ring-1 ring-inset ring-line hover:bg-sunken hover:text-ink',
+    className,
+  ]}
+>
+  <Icon name="moon" size={20} class="theme-when-light" />
+  <Icon name="sun" size={20} class="theme-when-dark" />
+  {
+    showLabel && (
+      <>
+        <span class="theme-when-light">Modo oscuro</span>
+        <span class="theme-when-dark">Modo claro</span>
+      </>
+    )
+  }
+</button>
+
+<style is:global>
+  :root:not([data-theme='dark']) .theme-when-dark,
+  :root[data-theme='dark'] .theme-when-light {
+    display: none;
+  }
+</style>
+
+<script>
+  import { THEME_COOKIE } from '@/utils/theme';
+
+  const root = document.documentElement;
+  const label = () => (root.dataset.theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]')) {
+    button.setAttribute('aria-label', label());
+    button.addEventListener('click', () => {
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      document.cookie = `${THEME_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
+      for (const b of document.querySelectorAll('[data-theme-toggle]')) b.setAttribute('aria-label', label());
+    });
+  }
+</script>

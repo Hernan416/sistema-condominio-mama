@@ -1,0 +1,186 @@
+@import '@fontsource-variable/atkinson-hyperlegible-next';
+@import '@fontsource-variable/bricolage-grotesque';
+@import 'tailwindcss';
+
+/*
+ * Sistema visual. Tinta verde casi negra + esmeralda como único color de acción;
+ * un panel "night" para la marca, con un lima que solo decora (nunca texto sobre claro).
+ * Tipografía: Bricolage Grotesque (display, títulos) + Atkinson Hyperlegible Next (lectura,
+ * diseñada para baja visión: el público residente tiene 55–65+ años).
+ *
+ * Contrastes (verificados): ink/surface 17.8:1 · ink-muted/surface 7.6:1 · accent/surface 6.5:1 ·
+ * night-muted/night 8.7:1 · glow/night 13.1:1 · line-strong/surface 4.5:1 (bordes ≥ 3:1).
+ */
+@theme {
+  --font-sans: 'Atkinson Hyperlegible Next Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Atkinson Hyperlegible Next Variable', ui-sans-serif, sans-serif;
+
+  --color-canvas: #f3f4f1;
+  --color-surface: #ffffff;
+  --color-sunken: #eef0ec;
+  --color-ink: #0f1a15;
+  --color-ink-muted: #4b5750;
+  --color-line: #e1e4df;
+  --color-line-strong: #6f7a74;
+
+  --color-night: #0c1f17;
+  --color-night-raised: #15302a;
+  --color-night-line: #24433a;
+  --color-night-ink: #f1f6f2;
+  --color-night-muted: #a9bdb2;
+  --color-glow: #b8f36b;
+
+  --color-accent: #0e6b4f;
+  --color-accent-strong: #0a5640;
+  --color-accent-tint: #e3f1ea;
+  --color-on-accent: #ffffff;
+
+  --color-danger: #b42318;
+  --color-danger-tint: #fef0ee;
+  --color-warning: #8a5300;
+  --color-warning-tint: #fef4e2;
+
+  --radius-control: 0.875rem;
+  --radius-card: 1.5rem;
+
+  --shadow-raised: 0 1px 2px rgb(15 26 21 / 0.05), 0 8px 24px -8px rgb(15 26 21 / 0.12);
+  --shadow-float: 0 2px 6px rgb(15 26 21 / 0.06), 0 24px 48px -16px rgb(15 26 21 / 0.22);
+  --shadow-button: 0 1px 1px rgb(10 86 64 / 0.3), 0 8px 20px -6px rgb(14 107 79 / 0.45);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-rise: rise 0.7s var(--ease-out-expo) both;
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+      filter: blur(4px);
+    }
+  }
+}
+
+/*
+ * Modo oscuro (opcional; el claro es el predeterminado). Se activa con data-theme="dark"
+ * en <html>, que el servidor pone según la cookie `theme` (sin parpadeo al cargar).
+ * Como todas las utilidades leen variables, basta con redefinirlas aquí.
+ * En oscuro el acento se aclara y el texto sobre él pasa a ser oscuro.
+ * Contrastes (verificados): ink/surface 14.9:1 · ink-muted/surface 7.8:1 · accent/surface 8.3:1 ·
+ * on-accent/accent 9.0:1 · danger/surface 8.2:1 · warning/surface 9.9:1 · line-strong/surface 4.0:1.
+ */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-canvas: #0b1310;
+  --color-surface: #121c18;
+  --color-sunken: #18241f;
+  --color-ink: #e8efea;
+  --color-ink-muted: #a3b1a9;
+  --color-line: #24332c;
+  --color-line-strong: #6b7c73;
+
+  --color-night: #0e2219;
+  --color-night-raised: #173229;
+  --color-night-line: #24433a;
+
+  --color-accent: #3cc994;
+  --color-accent-strong: #6ee0b4;
+  --color-accent-tint: #0f3326;
+  --color-on-accent: #04130d;
+
+  --color-danger: #ff9585;
+  --color-danger-tint: #3a1512;
+  --color-warning: #f3b95f;
+  --color-warning-tint: #33240c;
+
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  --shadow-float: 0 2px 6px rgb(0 0 0 / 0.4), 0 24px 48px -16px rgb(0 0 0 / 0.7);
+  --shadow-button: 0 1px 1px rgb(0 0 0 / 0.4), 0 8px 20px -6px rgb(60 201 148 / 0.35);
+}
+
+@layer base {
+  html {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-canvas);
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+
+  input,
+  select,
+  textarea {
+    caret-color: var(--color-accent);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  .on-night :focus-visible {
+    outline-color: var(--color-glow);
+  }
+
+  a {
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: 1.5px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.025em;
+  }
+
+  /* Trama sutil del panel de marca: da textura sin competir con el contenido. */
+  .night-texture {
+    background-color: var(--color-night);
+    background-image:
+      radial-gradient(60rem 40rem at 110% -10%, rgb(184 243 107 / 0.12), transparent 60%),
+      radial-gradient(40rem 30rem at -20% 120%, rgb(14 107 79 / 0.35), transparent 60%),
+      linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+    background-size: auto, auto, 40px 40px, 40px 40px;
+  }
+}

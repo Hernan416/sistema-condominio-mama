@@ -1,0 +1,21 @@
+---
+interface Props {
+  value: number;
+  max: number;
+  label: string;
+}
+
+const { value, max, label } = Astro.props;
+const pct = max === 0 ? 0 : Math.round((value / max) * 100);
+---
+
+<div
+  role="meter"
+  aria-valuemin={0}
+  aria-valuemax={max}
+  aria-valuenow={value}
+  aria-label={label}
+  class="h-2 w-full overflow-hidden rounded-full bg-sunken"
+>
+  <div class="h-full rounded-full bg-accent" style={`width:${pct}%`}></div>
+</div>

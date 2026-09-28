@@ -1,0 +1,30 @@
+---
+import '@/styles/global.css';
+import { parseTheme, THEME_COOKIE } from '@/utils/theme';
+
+interface Props {
+  title: string;
+  description?: string;
+  bodyClass?: string;
+}
+
+const { title, description = 'Consulte y descargue su factura de administración.', bodyClass } = Astro.props;
+// El servidor decide el tema con la cookie: la página llega ya pintada, sin parpadeo.
+const theme = parseTheme(Astro.cookies.get(THEME_COOKIE)?.value);
+---
+
+<!doctype html>
+<html lang="es" data-theme={theme}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0c1f17" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body class={bodyClass}>
+    <slot />
+  </body>
+</html>

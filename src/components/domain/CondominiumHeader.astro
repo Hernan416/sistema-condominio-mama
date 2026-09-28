@@ -1,0 +1,63 @@
+---
+// Encabezado de un condominio: nombre, tasa del día y pestañas de gestión.
+import ExchangeRateBadge from '@/components/domain/ExchangeRateBadge.astro';
+import type { ExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+
+export type CondominiumTab = 'resumen' | 'facturas' | 'gastos' | 'casas' | 'cobranza' | 'alicuotas' | 'datos';
+
+interface Props {
+  name: string;
+  slug: string;
+  city: string | null;
+  active: CondominiumTab;
+  rate: ExchangeRateView | null;
+  description: string;
+  /** Título alternativo (p. ej. "Casa 5" dentro de una ficha). */
+  title?: string;
+}
+
+const { name, slug, city, active, rate, description, title } = Astro.props;
+
+const tabs: { id: CondominiumTab; label: string; href: string }[] = [
+  { id: 'resumen', label: 'Resumen', href: `/admin/${slug}` },
+  { id: 'facturas', label: 'Facturas del mes', href: `/admin/${slug}/facturas` },
+  { id: 'gastos', label: 'Relación de gastos', href: `/admin/${slug}/gastos` },
+  { id: 'casas', label: 'Casas y cuentas', href: `/admin/${slug}/casas` },
+  { id: 'cobranza', label: 'Cobranza', href: `/admin/${slug}/cobranza` },
+  { id: 'alicuotas', label: 'Alícuotas', href: `/admin/${slug}/alicuotas` },
+  { id: 'datos', label: 'Datos del recibo', href: `/admin/${slug}/datos` },
+];
+---
+
+<header class="mb-8 flex flex-col gap-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="font-display text-4xl font-semibold sm:text-5xl">{title ?? name}</h1>
+      <p class="mt-3 max-w-[70ch] text-lg text-ink-muted">
+        {city ? `${city} · ` : ''}{description}
+      </p>
+    </div>
+    <ExchangeRateBadge rate={rate} />
+  </div>
+
+  <nav aria-label="Secciones del condominio" class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <ul class="flex w-max gap-1 rounded-2xl bg-sunken p-1 ring-1 ring-inset ring-line">
+      {
+        tabs.map((t) => (
+          <li>
+            <a
+              href={t.href}
+              aria-current={t.id === active ? 'page' : undefined}
+              class:list={[
+                'inline-flex min-h-10 items-center whitespace-nowrap rounded-xl px-3.5 text-[0.95rem] font-bold no-underline transition-colors',
+                t.id === active ? 'bg-surface text-ink shadow-[var(--shadow-raised)] ring-1 ring-line' : 'text-ink-muted hover:text-ink',
+              ]}
+            >
+              {t.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</header>

@@ -1,0 +1,188 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import SummaryStrip from '@/components/ui/SummaryStrip.astro';
+import FormSelect from '@/components/ui/FormSelect.astro';
+import Button from '@/components/ui/Button.astro';
+import { getAccountService, getAppName } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { chargeHistory, paymentHistory, yearsWithActivity, type ChargeFilter } from '@/services/accounts/collectionHistory';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { PAYMENT_METHOD_LABELS } from '@/types/accounts';
+import { formatUsd, formatVes } from '@/utils/currency';
+import { formatDateVe } from '@/utils/dates';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const accounts = [...(await getAccountService().accountsFor(condominium.id)).values()];
+const q = Astro.url.searchParams;
+const view = q.get('vista') === 'pagos' ? 'pagos' : 'recibos';
+const status = (['all', 'pending', 'partial', 'paid'].includes(q.get('estado') ?? '') ? q.get('estado') : 'all') as ChargeFilter;
+const years = yearsWithActivity(accounts);
+const year = years.includes(q.get('anio') ?? '') ? q.get('anio') : null;
+const houseId = accounts.some((a) => a.house.id === q.get('casa')) ? q.get('casa') : null;
+
+const charges = chargeHistory(accounts, { status, year, houseId });
+const payments = paymentHistory(accounts, { year, houseId });
+const vesCount = payments.rows.filter((r) => r.payment.amountVes !== null).length;
+const date = (d: string) => formatDateVe(new Date(`${d}T12:00:00-04:00`));
+const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted';
+const statusView = {
+  paid: { label: 'Pagado', cls: 'bg-accent-tint text-accent-strong' },
+  partial: { label: 'Abono parcial', cls: 'bg-warning-tint text-warning' },
+  unpaid: { label: 'Pendiente', cls: 'bg-warning-tint text-warning' },
+};
+const link = (params: Record<string, string | null>) => {
+  const u = new URLSearchParams();
+  const merged = { vista: view, estado: status, anio: year, casa: houseId, ...params };
+  for (const [k, v] of Object.entries(merged)) if (v && v !== 'all') u.set(k, v);
+  return `?${u}`;
+};
+---
+
+<AdminLayout title={`Cobranza · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="cobranza"
+    rate={toExchangeRateView(rate)}
+    description="Historial de recibos y deudas con su estado de pago, y de todos los pagos recibidos."
+  />
+
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <nav aria-label="Vista" class="flex gap-1 rounded-2xl bg-sunken p-1 ring-1 ring-inset ring-line">
+        {
+          [
+            { id: 'recibos', label: 'Recibos y deudas' },
+            { id: 'pagos', label: 'Pagos recibidos' },
+          ].map((v) => (
+            <a
+              href={link({ vista: v.id })}
+              aria-current={view === v.id ? 'page' : undefined}
+              class:list={['inline-flex min-h-10 items-center rounded-xl px-4 text-sm font-bold no-underline', view === v.id ? 'bg-surface text-ink shadow-[var(--shadow-raised)] ring-1 ring-line' : 'text-ink-muted hover:text-ink']}
+            >
+              {v.label}
+            </a>
+          ))
+        }
+      </nav>
+
+      <form method="get" class="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="vista" value={view} />
+        {view === 'recibos' && (
+          <FormSelect
+            id="f-estado"
+            name="estado"
+            label="Estado"
+            value={status}
+            options={[
+              { value: 'all', label: 'Todos' },
+              { value: 'pending', label: 'Con saldo pendiente' },
+              { value: 'partial', label: 'Abono parcial' },
+              { value: 'paid', label: 'Pagados' },
+            ]}
+          />
+        )}
+        <FormSelect id="f-anio" name="anio" label="Año" value={year ?? ''} options={[{ value: '', label: 'Todos' }, ...years.map((y) => ({ value: y, label: y }))]} />
+        <FormSelect id="f-casa" name="casa" label="Casa" value={houseId ?? ''} options={[{ value: '', label: 'Todas' }, ...accounts.map((a) => ({ value: a.house.id, label: `Casa ${a.house.number}` }))]} />
+        <Button type="submit" size="md" variant="secondary">Filtrar</Button>
+      </form>
+    </div>
+
+    {
+      view === 'recibos' ? (
+        <>
+          <SummaryStrip
+            items={[
+              { label: 'Cargos', value: String(charges.totals.count), hint: `${charges.totals.paidCount} pagados` },
+              { label: 'Facturado', value: formatUsd(charges.totals.charged) },
+              { label: 'Cobrado', value: formatUsd(charges.totals.paid), tone: 'accent' },
+              { label: 'Pendiente', value: formatUsd(charges.totals.outstanding), tone: charges.totals.outstanding > 0 ? 'warning' : 'default' },
+            ]}
+          />
+          <div class="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+            <table class="w-full min-w-[720px] text-base">
+              <thead class="bg-canvas/60">
+                <tr class="border-b border-line">
+                  <th scope="col" class={th}>Fecha</th>
+                  <th scope="col" class={th}>Casa</th>
+                  <th scope="col" class={th}>Concepto</th>
+                  <th scope="col" class={`${th} text-right`}>Monto</th>
+                  <th scope="col" class={`${th} text-right`}>Pendiente</th>
+                  <th scope="col" class={th}>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {charges.rows.length === 0 && (
+                  <tr><td colspan="6" class="p-8 text-center text-ink-muted">No hay cargos con estos filtros.</td></tr>
+                )}
+                {charges.rows.map(({ house, charge: c }) => (
+                  <tr class="border-b border-line last:border-b-0 hover:bg-canvas/50">
+                    <td class="tabular whitespace-nowrap px-4 py-3 text-sm text-ink-muted">{date(c.date)}</td>
+                    <td class="whitespace-nowrap px-4 py-3">
+                      <a href={`/admin/${condominium.slug}/casas/${house.id}`} class="font-bold text-ink no-underline hover:underline">Casa {house.number}</a>
+                      <span class="block max-w-44 truncate text-xs text-ink-muted">{house.ownerName ?? ''}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="font-bold">{c.label}</span>
+                      {c.invoice?.driveFileUrl && <a href={c.invoice.driveFileUrl} target="_blank" rel="noopener" class="ml-2 text-xs font-bold text-accent underline">PDF</a>}
+                      {c.source === 'debt' && <span class="block text-xs text-ink-muted">Deuda registrada</span>}
+                    </td>
+                    <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold">{formatUsd(c.amount)}</td>
+                    <td class:list={['tabular whitespace-nowrap px-4 py-3 text-right font-bold', c.outstanding > 0 ? 'text-warning' : 'text-ink-muted']}>{formatUsd(c.outstanding)}</td>
+                    <td class="px-4 py-3"><span class:list={['inline-flex whitespace-nowrap rounded-full px-3 py-1 text-sm font-bold', statusView[c.status].cls]}>{statusView[c.status].label}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <>
+          <SummaryStrip
+            items={[
+              { label: 'Pagos', value: String(payments.rows.length) },
+              { label: 'Total recibido', value: formatUsd(payments.total), tone: 'accent' },
+              { label: 'En bolívares', value: String(vesCount), hint: vesCount === 1 ? 'pago convertido a USD' : 'pagos convertidos a USD' },
+            ]}
+          />
+          <div class="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+            <table class="w-full min-w-[720px] text-base">
+              <thead class="bg-canvas/60">
+                <tr class="border-b border-line">
+                  <th scope="col" class={th}>Fecha</th>
+                  <th scope="col" class={th}>Casa</th>
+                  <th scope="col" class={th}>Forma y referencia</th>
+                  <th scope="col" class={th}>Aplicado a</th>
+                  <th scope="col" class={`${th} text-right`}>Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.rows.length === 0 && (
+                  <tr><td colspan="5" class="p-8 text-center text-ink-muted">No hay pagos con estos filtros.</td></tr>
+                )}
+                {payments.rows.map(({ house, payment: p }) => (
+                  <tr class="border-b border-line last:border-b-0 align-top hover:bg-canvas/50">
+                    <td class="tabular whitespace-nowrap px-4 py-3 text-sm text-ink-muted">{date(p.date)}</td>
+                    <td class="whitespace-nowrap px-4 py-3"><a href={`/admin/${condominium.slug}/casas/${house.id}#pagos`} class="font-bold text-ink no-underline hover:underline">Casa {house.number}</a></td>
+                    <td class="px-4 py-3 text-sm">
+                      <span class="font-bold">{PAYMENT_METHOD_LABELS[p.method]}</span>
+                      {p.reference && <span class="block text-ink-muted">Ref. {p.reference}</span>}
+                      {p.amountVes !== null && <span class="tabular block text-ink-muted">{formatVes(p.amountVes)}</span>}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-ink-muted">{p.appliedTo.length ? p.appliedTo.map((a) => a.label).join(', ') : 'Saldo a favor'}</td>
+                    <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold text-accent">{formatUsd(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )
+    }
+  </div>
+</AdminLayout>

@@ -1,0 +1,31 @@
+---
+// Ficha de la casa: propietario, contacto, ocupación y notas internas.
+import Button from '@/components/ui/Button.astro';
+import FormField from '@/components/ui/FormField.astro';
+import FormSelect from '@/components/ui/FormSelect.astro';
+import { OCCUPANCY_LABELS } from '@/types/accounts';
+import type { House } from '@/types/domain';
+
+interface Props {
+  action: string;
+  house: House;
+}
+
+const { action, house } = Astro.props;
+const occupancy = Object.entries(OCCUPANCY_LABELS).map(([value, label]) => ({ value, label }));
+---
+
+<form method="post" action={action} class="flex flex-col gap-4">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <FormField id="p-name" name="ownerName" label="Nombre y apellido del propietario" value={house.ownerName} maxlength={120} />
+    <FormField id="p-doc" name="ownerDocument" label="Cédula o RIF" value={house.ownerDocument} placeholder="V-12345678" maxlength={20} />
+    <FormField id="p-phone" name="ownerPhone" type="tel" label="Teléfono" value={house.ownerPhone} placeholder="0414-1234567" maxlength={20} />
+    <FormField id="p-email" name="ownerEmail" type="email" label="Correo" value={house.ownerEmail} placeholder="correo@ejemplo.com" maxlength={120} />
+    <FormSelect id="p-occ" name="occupancy" label="¿Quién vive en la casa?" value={house.occupancy} options={occupancy} />
+    <div class="hidden sm:block" aria-hidden="true"></div>
+    <FormField id="p-occ-name" name="occupantName" label="Inquilino u ocupante (si está alquilada)" value={house.occupantName} maxlength={120} />
+    <FormField id="p-occ-phone" name="occupantPhone" type="tel" label="Teléfono del inquilino" value={house.occupantPhone} maxlength={20} />
+  </div>
+  <FormField id="p-notes" name="notes" label="Notas internas (no salen en el recibo)" value={house.notes} multiline rows={3} maxlength={1000} placeholder="Ej.: Propietario vive en el exterior; contactar por correo." />
+  <div><Button type="submit" size="md" class="!w-auto px-6">Guardar datos</Button></div>
+</form>

@@ -1,0 +1,73 @@
+---
+// Lista de casas con su situación de cuenta (solo presentación).
+import Icon from '@/components/ui/Icon.astro';
+import type { HouseAccount } from '@/services/accounts/AccountService';
+import { OCCUPANCY_LABELS } from '@/types/accounts';
+import { formatUsd } from '@/utils/currency';
+import { debtAgeLabel } from '@/utils/ledger';
+
+interface Props {
+  slug: string;
+  accounts: HouseAccount[];
+  today: string;
+}
+
+const { slug, accounts, today } = Astro.props;
+const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted';
+---
+
+<div class="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+  <table class="w-full min-w-[760px] text-base">
+    <thead class="bg-canvas/60">
+      <tr class="border-b border-line">
+        <th scope="col" class={th}>Casa</th>
+        <th scope="col" class={th}>Propietario</th>
+        <th scope="col" class={th}>Contacto</th>
+        <th scope="col" class={`${th} text-right`}>Situación</th>
+        <th scope="col" class={th}><span class="sr-only">Abrir</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        accounts.map(({ house, outstanding, credit, oldestPendingDate }) => {
+          const age = oldestPendingDate ? debtAgeLabel(oldestPendingDate, today) : null;
+          return (
+            <tr class="border-b border-line last:border-b-0 hover:bg-canvas/50">
+              <th scope="row" class="px-4 py-3 text-left">
+                <a href={`/admin/${slug}/casas/${house.id}`} class="flex items-center gap-3 no-underline">
+                  <span class="font-display tabular inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-sunken px-2 text-lg font-semibold text-ink">{house.number}</span>
+                  <code class="whitespace-nowrap text-sm font-normal text-ink-muted">{house.username}</code>
+                </a>
+              </th>
+              <td class="px-4 py-3">
+                <span class="block font-bold text-ink">{house.ownerName ?? 'Sin propietario'}</span>
+                <span class="text-xs text-ink-muted">{house.ownerDocument ?? 'Sin cédula'} · {OCCUPANCY_LABELS[house.occupancy]}</span>
+              </td>
+              <td class="px-4 py-3 text-sm text-ink-muted">
+                <span class="block whitespace-nowrap">{house.ownerPhone ?? '—'}</span>
+                <span class="block max-w-52 truncate">{house.ownerEmail ?? ''}</span>
+              </td>
+              <td class="whitespace-nowrap px-4 py-3 text-right">
+                {outstanding > 0 ? (
+                  <>
+                    <span class="tabular block font-bold text-warning">Debe {formatUsd(outstanding)}</span>
+                    <span class="text-xs text-ink-muted">{age === 'aún no vence' ? age : age && `pendiente ${age}`}</span>
+                  </>
+                ) : credit > 0 ? (
+                  <span class="tabular font-bold text-accent">Saldo a favor {formatUsd(credit)}</span>
+                ) : (
+                  <span class="font-bold text-accent">Al día</span>
+                )}
+              </td>
+              <td class="px-4 py-3 text-right">
+                <a href={`/admin/${slug}/casas/${house.id}`} class="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-sm font-bold text-accent no-underline hover:bg-sunken">
+                  Abrir cuenta <Icon name="arrow-right" size={16} />
+                </a>
+              </td>
+            </tr>
+          );
+        })
+      }
+    </tbody>
+  </table>
+</div>

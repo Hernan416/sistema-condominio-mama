@@ -1,0 +1,121 @@
+---
+// Estado de cuenta de una casa: cargos (recibos + deudas) y pagos con a qué se aplicaron.
+import type { AccountCharge, AccountPayment } from '@/services/accounts/AccountService';
+import { PAYMENT_METHOD_LABELS } from '@/types/accounts';
+import { formatUsd, formatVes } from '@/utils/currency';
+import { formatDateVe } from '@/utils/dates';
+
+interface Props {
+  charges: AccountCharge[];
+  payments: AccountPayment[];
+  deletePaymentAction: string;
+  deleteDebtAction: string;
+}
+
+const { charges, payments, deletePaymentAction, deleteDebtAction } = Astro.props;
+const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted';
+const date = (d: string) => formatDateVe(new Date(`${d}T12:00:00-04:00`));
+const statusView = {
+  paid: { label: 'Pagado', cls: 'bg-accent-tint text-accent-strong' },
+  partial: { label: 'Abono parcial', cls: 'bg-warning-tint text-warning' },
+  unpaid: { label: 'Pendiente', cls: 'bg-warning-tint text-warning' },
+};
+---
+
+<section aria-labelledby="charges-title" class="rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+  <h3 id="charges-title" class="font-display border-b border-line px-5 py-4 text-xl font-semibold">Cargos</h3>
+  {
+    charges.length === 0 ? (
+      <p class="p-6 text-base text-ink-muted">Sin recibos emitidos ni deudas registradas.</p>
+    ) : (
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[640px] text-base">
+          <thead class="bg-canvas/60">
+            <tr class="border-b border-line">
+              <th scope="col" class={th}>Fecha</th>
+              <th scope="col" class={th}>Concepto</th>
+              <th scope="col" class={`${th} text-right`}>Monto</th>
+              <th scope="col" class={`${th} text-right`}>Pendiente</th>
+              <th scope="col" class={th}>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...charges].reverse().map((c) => (
+              <tr class="border-b border-line last:border-b-0 align-top">
+                <td class="tabular whitespace-nowrap px-4 py-3 text-sm text-ink-muted">{date(c.date)}</td>
+                <td class="px-4 py-3">
+                  <span class="block font-bold text-ink">{c.label}</span>
+                  <span class="text-xs text-ink-muted">
+                    {c.source === 'debt' ? 'Deuda registrada' : 'Recibo mensual'}
+                    {c.debt?.detail ? ` · ${c.debt.detail}` : ''}
+                  </span>
+                  <div class="mt-1 flex gap-3">
+                    {c.invoice?.driveFileUrl && (
+                      <a href={c.invoice.driveFileUrl} target="_blank" rel="noopener" class="text-xs font-bold text-accent underline">Ver PDF</a>
+                    )}
+                    {c.debt && (
+                      <form
+                        method="post"
+                        action={deleteDebtAction}
+                        onsubmit={c.paid > 0 ? "return confirm('¿Eliminar esta deuda? Lo que se le había abonado pasa a los demás cargos o queda como saldo a favor.')" : "return confirm('¿Eliminar esta deuda registrada?')"}
+                      >
+                        <input type="hidden" name="debtId" value={c.debt.id} />
+                        <button type="submit" class="cursor-pointer text-xs font-bold text-danger underline">Eliminar</button>
+                      </form>
+                    )}
+                  </div>
+                </td>
+                <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold">{formatUsd(c.amount)}</td>
+                <td class:list={['tabular whitespace-nowrap px-4 py-3 text-right font-bold', c.outstanding > 0 ? 'text-warning' : 'text-ink-muted']}>{formatUsd(c.outstanding)}</td>
+                <td class="px-4 py-3">
+                  <span class:list={['inline-flex whitespace-nowrap rounded-full px-3 py-1 text-sm font-bold', statusView[c.status].cls]}>{statusView[c.status].label}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</section>
+
+<section aria-labelledby="payments-title" class="rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+  <h3 id="payments-title" class="font-display border-b border-line px-5 py-4 text-xl font-semibold">Pagos y abonos</h3>
+  {
+    payments.length === 0 ? (
+      <p class="p-6 text-base text-ink-muted">Aún no hay pagos registrados.</p>
+    ) : (
+      <ul class="divide-y divide-line">
+        {payments.map((p) => (
+          <li class="grid gap-2 px-5 py-4 sm:grid-cols-[9rem_minmax(0,1fr)_auto] sm:items-start">
+            <span class="tabular text-sm text-ink-muted">{date(p.date)}</span>
+            <div class="min-w-0">
+              <p class="font-bold text-ink">
+                {PAYMENT_METHOD_LABELS[p.method]}
+                {p.reference && <span class="font-normal text-ink-muted"> · Ref. {p.reference}</span>}
+              </p>
+              {p.amountVes !== null && p.exchangeRate !== null && (
+                <p class="tabular text-sm text-ink-muted">
+                  {formatVes(p.amountVes)} a {formatVes(p.exchangeRate)} por USD
+                </p>
+              )}
+              <p class="text-sm text-ink-muted">
+                {p.appliedTo.length === 0
+                  ? 'Queda como saldo a favor.'
+                  : `Aplicado a: ${p.appliedTo.map((a) => `${a.label} (${formatUsd(a.amount)})`).join(', ')}`}
+              </p>
+              {p.note && <p class="text-sm text-ink-muted">Nota: {p.note}</p>}
+            </div>
+            <div class="flex items-center justify-between gap-4 sm:flex-col sm:items-end">
+              <span class="tabular whitespace-nowrap text-lg font-bold text-accent">{formatUsd(p.amount)}</span>
+              <form method="post" action={deletePaymentAction} onsubmit="return confirm('¿Anular este pago? La deuda volverá a quedar pendiente.')">
+                <input type="hidden" name="paymentId" value={p.id} />
+                <button type="submit" class="cursor-pointer text-xs font-bold text-danger underline">Anular</button>
+              </form>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</section>

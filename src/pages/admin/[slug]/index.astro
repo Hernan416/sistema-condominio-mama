@@ -1,0 +1,124 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import TrendChart from '@/components/domain/TrendChart.astro';
+import AgingBars from '@/components/domain/AgingBars.astro';
+import SummaryStrip from '@/components/ui/SummaryStrip.astro';
+import FormSelect from '@/components/ui/FormSelect.astro';
+import Button from '@/components/ui/Button.astro';
+import { getAppName, getMetricsService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
+import { allMonths, currentPeriod, formatPeriod } from '@/utils/months';
+import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
+import { debtAgeLabel } from '@/utils/ledger';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+// Periodo elegido (por defecto, el mes actual).
+const now = currentPeriod();
+const qMonth = Number(Astro.url.searchParams.get('mes'));
+const qYear = Number(Astro.url.searchParams.get('anio'));
+const period = qMonth >= 1 && qMonth <= 12 && qYear >= 2000 && qYear <= 2100 ? { month: qMonth, year: qYear } : now;
+
+const today = isoDateInCaracas(new Date());
+const m = await getMetricsService().forCondominium(condominium, period, today);
+const ves = (usd: number) => (rate ? formatVes(usdToVes(usd, rate.usdToVes)) : undefined);
+const pct = (v: number | null) => (v === null ? '—' : `${new Intl.NumberFormat('es-VE', { maximumFractionDigits: 0 }).format(v * 100)} %`);
+const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
+---
+
+<AdminLayout title={`Resumen · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="resumen"
+    rate={toExchangeRateView(rate)}
+    description="Consolidado del condominio: lo facturado, lo cobrado, los gastos, el saldo en caja y quién debe."
+  />
+
+  <div class="flex flex-col gap-6">
+    <form method="get" class="flex flex-wrap items-end gap-3" aria-label="Periodo">
+      <FormSelect id="r-mes" name="mes" label="Mes" value={String(period.month)} options={allMonths().map((x) => ({ value: String(x.value), label: x.label }))} />
+      <FormSelect id="r-anio" name="anio" label="Año" value={String(period.year)} options={years.map((y) => ({ value: String(y), label: String(y) }))} />
+      <Button type="submit" size="md" variant="secondary">Ver periodo</Button>
+    </form>
+
+    <SummaryStrip
+      items={[
+        { label: `Facturado · ${formatPeriod(period.month, period.year).toLowerCase()}`, value: formatUsd(m.period.billed), hint: `${m.period.issuedCount} de ${m.period.unitCount} recibos emitidos` },
+        { label: 'Cobrado en el mes', value: formatUsd(m.period.collected), tone: 'accent', hint: `${pct(m.period.collectionRate)} de lo facturado · ${m.period.paymentsCount} ${m.period.paymentsCount === 1 ? 'pago' : 'pagos'}` },
+        { label: 'Gastos del mes', value: formatUsd(m.period.expenses), hint: m.period.communityIncome > 0 ? `Ingresos de la comunidad: ${formatUsd(m.period.communityIncome)}` : 'Según la relación de gastos' },
+        { label: 'Saldo en caja', value: formatUsd(m.cash.balance), tone: m.cash.balance < 0 ? 'warning' : 'default', hint: ves(m.cash.balance) },
+      ]}
+    />
+
+    <TrendChart months={m.trend} />
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <section aria-labelledby="rec-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="rec-title" class="font-display text-2xl font-semibold">Cuentas por cobrar</h2>
+          <a href={`/admin/${condominium.slug}/cobranza?estado=pending`} class="text-sm font-bold text-accent">Ver pendientes</a>
+        </div>
+        <div class="flex flex-wrap gap-x-10 gap-y-2">
+          <p><span class="block text-sm text-ink-muted">Deuda total</span><span class="font-display text-3xl font-semibold text-warning">{formatUsd(m.receivables.outstanding)}</span></p>
+          <p><span class="block text-sm text-ink-muted">Casas con deuda</span><span class="font-display text-3xl font-semibold">{m.receivables.housesWithDebt} de {m.receivables.unitCount}</span></p>
+          {m.receivables.credit > 0 && <p><span class="block text-sm text-ink-muted">Saldos a favor</span><span class="font-display text-3xl font-semibold text-accent">{formatUsd(m.receivables.credit)}</span></p>}
+        </div>
+        <h3 class="text-sm font-bold">Antigüedad de la deuda</h3>
+        <AgingBars aging={m.receivables.aging} />
+      </section>
+
+      <section aria-labelledby="cash-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="cash-title" class="font-display text-2xl font-semibold">Caja</h2>
+          <a href={`/admin/${condominium.slug}/datos#caja`} class="text-sm font-bold text-accent">Saldo inicial</a>
+        </div>
+        <dl class="flex flex-col divide-y divide-line text-base">
+          <div class="flex justify-between gap-4 py-2">
+            <dt class="text-ink-muted">Saldo inicial{m.cash.openingBalanceDate ? ` (${formatDateVe(new Date(`${m.cash.openingBalanceDate}T12:00:00-04:00`))})` : ''}</dt>
+            <dd class="tabular font-bold">{formatUsd(m.cash.openingBalance)}</dd>
+          </div>
+          <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">+ Cobrado a las casas</dt><dd class="tabular font-bold">{formatUsd(m.cash.collected)}</dd></div>
+          <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">+ Ingresos de la comunidad</dt><dd class="tabular font-bold">{formatUsd(m.cash.communityIncome)}</dd></div>
+          <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">− Gastos del condominio</dt><dd class="tabular font-bold">{formatUsd(m.cash.expenses)}</dd></div>
+          <div class="flex justify-between gap-4 py-3 text-lg"><dt class="font-bold">= Saldo en caja</dt><dd class="tabular font-bold">{formatUsd(m.cash.balance)}</dd></div>
+        </dl>
+        <p class="text-sm text-ink-muted">
+          Fondo de reserva facturado (acumulado): <strong class="tabular text-ink">{formatUsd(m.cash.reserveFundBilled)}</strong>. Los gastos salen de las relaciones de gastos guardadas hasta este mes.
+        </p>
+      </section>
+    </div>
+
+    <section aria-labelledby="debtors-title" class="rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <h2 id="debtors-title" class="font-display border-b border-line px-5 py-4 text-2xl font-semibold">Casas con más deuda</h2>
+      {
+        m.receivables.topDebtors.length === 0 ? (
+          <p class="p-6 text-base font-bold text-accent">Todas las casas están al día.</p>
+        ) : (
+          <ul class="divide-y divide-line">
+            {m.receivables.topDebtors.map((d) => (
+              <li>
+                <a href={`/admin/${condominium.slug}/casas/${d.house.id}`} class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 no-underline hover:bg-canvas/50">
+                  <span class="flex items-center gap-3">
+                    <span class="font-display inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-sunken px-2 text-lg font-semibold text-ink">{d.house.number}</span>
+                    <span>
+                      <span class="block font-bold text-ink">{d.house.ownerName ?? 'Sin propietario'}</span>
+                      <span class="text-xs text-ink-muted">Deuda más antigua: {d.oldestDate ? debtAgeLabel(d.oldestDate, today) : '—'}</span>
+                    </span>
+                  </span>
+                  <span class="tabular font-bold text-warning">{formatUsd(d.outstanding)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </section>
+  </div>
+</AdminLayout>

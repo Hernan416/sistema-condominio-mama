@@ -1,0 +1,35 @@
+---
+// Panel de marca del login: el mensaje + una vista previa real de lo que el residente recibe.
+// Decorativo (aria-hidden): la información útil está en el formulario.
+import Icon from '@/components/ui/Icon.astro';
+---
+
+<div class="flex flex-col gap-4">
+  <h2 class="font-display max-w-[14ch] text-5xl font-semibold leading-[1.02] xl:text-6xl">
+    Su factura del mes, a un toque.
+  </h2>
+  <p class="max-w-[40ch] text-xl leading-relaxed text-night-muted">
+    Residentes y administradores de varios conjuntos entran por la misma puerta.
+  </p>
+</div>
+
+<div class="relative max-w-sm" aria-hidden="true">
+  <div class="absolute -inset-6 -z-0 rounded-[2rem] bg-glow/10 blur-2xl"></div>
+  <div class="relative rotate-[-2deg] rounded-[var(--radius-card)] bg-surface p-6 text-ink shadow-[var(--shadow-float)]">
+    <div class="flex items-center justify-between text-sm text-ink-muted">
+      <span class="font-bold">Manzana 3-B · Casa 12</span>
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-accent-tint px-2.5 py-1 font-bold text-accent-strong">
+        <Icon name="check" size={14} strokeWidth={3} /> Lista
+      </span>
+    </div>
+    <p class="mt-5 text-base text-ink-muted">Septiembre 2026</p>
+    <p class="font-display tabular text-4xl font-semibold">$ 30,00</p>
+    <p class="tabular text-base font-bold text-ink-muted">Bs. 25.669,88 · tasa BCV</p>
+    <div class="mt-5 flex min-h-12 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-accent font-bold text-on-accent">
+      <Icon name="download" size={20} /> Descargar factura
+    </div>
+  </div>
+  <div class="absolute -bottom-6 -right-6 rotate-[4deg] rounded-2xl bg-night-raised px-4 py-3 text-sm font-bold text-night-ink shadow-[var(--shadow-float)] ring-1 ring-night-line">
+    <span class="mr-1.5 inline-block size-2 rounded-full bg-glow align-middle"></span>Manzanas 3-A y 3-B
+  </div>
+</div>

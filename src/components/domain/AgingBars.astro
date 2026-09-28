@@ -1,0 +1,41 @@
+---
+// Deuda por antigüedad: una sola serie (una tonalidad), cada barra con su valor visible.
+import type { AgingBucket } from '@/utils/ledger';
+import { formatUsd } from '@/utils/currency';
+
+interface Props {
+  aging: Record<AgingBucket, number>;
+}
+
+const { aging } = Astro.props;
+const rows: { key: AgingBucket; label: string }[] = [
+  { key: '0-30', label: 'Hasta 30 días' },
+  { key: '31-60', label: '31 a 60 días' },
+  { key: '61-90', label: '61 a 90 días' },
+  { key: '90+', label: 'Más de 90 días' },
+];
+const max = Math.max(1, ...Object.values(aging));
+---
+
+<ul class="flex flex-col gap-3" aria-label="Deuda por antigüedad">
+  {
+    rows.map((r) => (
+      <li class="grid grid-cols-[7.5rem_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+        <span class="text-ink-muted">{r.label}</span>
+        <span class="h-3 overflow-hidden rounded-full bg-sunken">
+          <span class="block h-full rounded-full bg-[var(--aging-color)]" style={`width:${(aging[r.key] / max) * 100}%`}></span>
+        </span>
+        <span class="tabular text-right font-bold">{formatUsd(aging[r.key])}</span>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  ul {
+    --aging-color: #2a78d6;
+  }
+  :global(:root[data-theme='dark']) ul {
+    --aging-color: #3987e5;
+  }
+</style>

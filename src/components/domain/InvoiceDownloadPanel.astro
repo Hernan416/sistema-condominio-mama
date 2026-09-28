@@ -1,0 +1,86 @@
+---
+import Button from '@/components/ui/Button.astro';
+import Icon from '@/components/ui/Icon.astro';
+import type { ResidentInvoiceView } from '@/adapters/invoiceViewAdapter';
+import type { ResidentPaymentState } from '@/adapters/residentAccountViewAdapter';
+
+interface Props {
+  /** null cuando todavía no hay factura disponible. */
+  invoice: ResidentInvoiceView | null;
+  /** Estado de pago del recibo según el libro de pagos (null = sin datos). */
+  payment?: ResidentPaymentState;
+  downloadHref: string;
+}
+
+const { invoice, payment = null, downloadHref } = Astro.props;
+const paid = payment?.status === 'paid';
+// Con abono parcial, en bolívares se muestra solo lo que falta (es lo que va a transferir).
+const partial = payment?.status === 'partial';
+const vesToPay = partial ? payment?.outstandingVesLabel : invoice?.vesLabel;
+---
+
+<section
+  aria-labelledby="invoice-heading"
+  class="rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-float)] ring-1 ring-line sm:p-10"
+>
+  {
+    invoice ? (
+      <div class="flex flex-col gap-8">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="invoice-heading" class="text-2xl font-bold">
+            Factura de {invoice.periodLabel}
+          </h2>
+          {paid ? (
+            <span class="inline-flex items-center gap-2 rounded-full bg-accent-tint px-4 py-1.5 text-lg font-bold text-accent-strong">
+              <Icon name="check" size={18} strokeWidth={3} /> Pagada
+            </span>
+          ) : payment?.status === 'partial' ? (
+            <span class="inline-flex items-center gap-2 rounded-full bg-warning-tint px-4 py-1.5 text-lg font-bold text-warning">
+              <Icon name="clock" size={18} strokeWidth={2.5} /> Abono parcial
+            </span>
+          ) : (
+            <span class="inline-flex items-center gap-2 rounded-full bg-accent-tint px-4 py-1.5 text-lg font-bold text-accent-strong">
+              <Icon name="check" size={18} strokeWidth={3} /> Lista para descargar
+            </span>
+          )}
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <p class="text-xl text-ink-muted">{paid ? 'Total del recibo' : 'Total a pagar'}</p>
+          <p class="font-display text-6xl font-semibold leading-none sm:text-7xl">{invoice.amountLabel}</p>
+          {payment?.status === 'partial' && (
+            <p class="text-xl">
+              Ya abonó <strong>{payment.paidLabel}</strong> · falta <strong class="text-warning">{payment.outstandingLabel}</strong>
+            </p>
+          )}
+          {!paid && vesToPay && invoice.rate && (
+            <div class="mt-2 rounded-[var(--radius-control)] bg-sunken px-5 py-4">
+              <p class="text-lg text-ink-muted">{partial ? 'Lo que falta' : 'En bolívares'}, a la tasa {invoice.rate.source} de hoy</p>
+              <p class="tabular text-3xl font-bold">{vesToPay}</p>
+              <p class="mt-1 text-base text-ink-muted">
+                {invoice.rate.rateLabel} por dólar · {invoice.rate.dateLabel}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <Button href={downloadHref} size="xl" download>
+          <Icon name="download" size={32} />
+          <span>Descargar factura de {invoice.monthLabel}</span>
+        </Button>
+
+        <p class="text-lg text-ink-muted">El PDF se guarda en las descargas de su teléfono o computador.</p>
+      </div>
+    ) : (
+      <div class="flex flex-col items-start gap-5">
+        <span class="inline-flex size-16 items-center justify-center rounded-2xl bg-warning-tint text-warning">
+          <Icon name="clock" size={32} />
+        </span>
+        <h2 id="invoice-heading" class="font-display text-3xl font-semibold">
+          Su factura aún no está lista
+        </h2>
+        <p class="text-xl text-ink-muted">La administración la publicará pronto. Vuelva a entrar en unos días.</p>
+      </div>
+    )
+  }
+</section>

@@ -1,0 +1,77 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import Meter from '@/components/ui/Meter.astro';
+
+export interface CondominiumOverviewView {
+  slug: string;
+  name: string;
+  city: string | null;
+  houseCount: number;
+  generatedCount: number;
+  pendingCount: number;
+  totalLabel: string;
+  totalVesLabel: string | null;
+}
+
+interface Props {
+  items: CondominiumOverviewView[];
+}
+
+const { items } = Astro.props;
+---
+
+{
+  items.length === 0 ? (
+    <div class="rounded-[var(--radius-card)] border-2 border-dashed border-line p-10 text-lg text-ink-muted">
+      Todavía no tiene condominios asignados. Pida acceso al administrador del sistema.
+    </div>
+  ) : (
+    <ul class="divide-y divide-line overflow-hidden rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+      {items.map((c) => (
+        <li>
+          <a
+            href={`/admin/${c.slug}`}
+            class="group grid gap-4 px-6 py-5 no-underline transition-colors hover:bg-canvas sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-8"
+          >
+            <div class="flex min-w-0 items-center gap-4">
+              <span class="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent-tint text-accent-strong">
+                <Icon name="building" size={24} />
+              </span>
+              <div class="min-w-0">
+                <p class="font-display truncate text-xl font-semibold text-ink">{c.name}</p>
+                <p class="text-base text-ink-muted">
+                  {c.city ? `${c.city} · ` : ''}
+                  {c.houseCount} unidades
+                </p>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <div class="flex items-baseline justify-between text-base">
+                <span class="font-bold text-ink">
+                  {c.generatedCount} de {c.houseCount} generadas
+                </span>
+                {c.pendingCount > 0 ? (
+                  <span class="font-bold text-warning">{c.pendingCount} pendientes</span>
+                ) : (
+                  <span class="font-bold text-accent">Al día</span>
+                )}
+              </div>
+              <Meter value={c.generatedCount} max={c.houseCount} label={`Facturas generadas en ${c.name}`} />
+            </div>
+
+            <div class="flex items-center justify-between gap-6 sm:justify-end">
+              <div class="text-right">
+                <p class="tabular text-lg font-bold text-ink">{c.totalLabel}</p>
+                {c.totalVesLabel && <p class="tabular text-sm text-ink-muted">{c.totalVesLabel}</p>}
+              </div>
+              <span class="inline-flex size-11 items-center justify-center rounded-full bg-sunken text-ink transition-[background-color,color,transform] duration-300 ease-[var(--ease-out-expo)] group-hover:translate-x-0.5 group-hover:bg-accent group-hover:text-on-accent">
+                <Icon name="arrow-right" size={20} />
+              </span>
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}

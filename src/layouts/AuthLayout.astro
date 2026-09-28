@@ -1,0 +1,37 @@
+---
+// Pantalla partida: panel de marca (night) + área del formulario.
+// En móvil el panel se reduce a una franja superior para que el formulario quede a mano.
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import BrandMark from '@/components/ui/BrandMark.astro';
+import ThemeToggle from '@/components/ui/ThemeToggle.astro';
+
+interface Props {
+  title: string;
+  appName: string;
+}
+
+const { title, appName } = Astro.props;
+---
+
+<BaseLayout title={`${title} · ${appName}`}>
+  <div class="grid min-h-dvh lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+    <aside class="on-night night-texture relative overflow-hidden text-night-ink">
+      <div class="flex h-full flex-col gap-8 px-5 py-7 sm:px-10 lg:px-14 lg:py-12">
+        <div class="flex items-center justify-between gap-4">
+          <BrandMark name={appName} tone="night" size="lg" />
+          <ThemeToggle tone="night" />
+        </div>
+        <div class="hidden flex-1 flex-col justify-center gap-10 lg:flex">
+          <slot name="showcase" />
+        </div>
+        <p class="hidden text-base text-night-muted lg:block">Facturación de administración para conjuntos residenciales.</p>
+      </div>
+    </aside>
+
+    <main class="flex items-start justify-center px-5 py-10 sm:px-10 lg:items-center lg:py-16">
+      <div class="w-full max-w-md animate-rise">
+        <slot />
+      </div>
+    </main>
+  </div>
+</BaseLayout>

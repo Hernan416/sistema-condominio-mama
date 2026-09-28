@@ -1,0 +1,63 @@
+---
+// Registrar un pago o abono de la casa. Se aplica solo a su deuda más antigua.
+import Button from '@/components/ui/Button.astro';
+import FormField from '@/components/ui/FormField.astro';
+import FormSelect from '@/components/ui/FormSelect.astro';
+import { PAYMENT_METHOD_LABELS } from '@/types/accounts';
+
+interface Props {
+  action: string;
+  today: string;
+  /** Monto sugerido en USD (p. ej. lo pendiente del recibo). */
+  suggestedAmount: string | null;
+  /** Tasa BCV de hoy, formato "855,6625". */
+  todayRate: string | null;
+}
+
+const { action, today, suggestedAmount, todayRate } = Astro.props;
+const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({ value, label }));
+---
+
+<form method="post" action={action} class="flex flex-col gap-4" data-payment-form>
+  <fieldset class="flex flex-wrap gap-2">
+    <legend class="mb-1.5 text-sm font-bold text-ink-muted">Moneda en que pagó</legend>
+    {
+      [
+        { value: 'USD', label: 'Dólares (USD)' },
+        { value: 'VES', label: 'Bolívares (Bs.)' },
+      ].map((c) => (
+        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-surface px-4 text-base font-bold ring-1 ring-inset ring-line has-[:checked]:bg-accent-tint has-[:checked]:text-accent-strong has-[:checked]:ring-accent">
+          <input type="radio" name="currency" value={c.value} checked={c.value === 'USD'} class="accent-[var(--color-accent)]" />
+          {c.label}
+        </label>
+      ))
+    }
+  </fieldset>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <FormField id="pay-amount" name="amount" label="Monto" value={suggestedAmount?.replace('.', ',') ?? ''} inputmode="decimal" placeholder="0,00" required />
+    <FormField id="pay-rate" name="exchangeRate" label="Tasa Bs. por USD (solo si pagó en Bs.)" value={todayRate ?? ''} inputmode="decimal" hint="Tasa BCV del día del pago. Se propone la de hoy." />
+    <FormField id="pay-date" name="date" type="date" label="Fecha del pago" value={today} required />
+    <FormSelect id="pay-method" name="method" label="Forma de pago" value="transfer" options={methods} />
+    <FormField id="pay-ref" name="reference" label="N° de referencia" placeholder="Ej.: 0012345678" maxlength={60} />
+    <FormField id="pay-note" name="note" label="Nota (opcional)" maxlength={300} />
+  </div>
+
+  <p class="text-sm text-ink-muted">El pago se aplica solo: primero a la deuda más antigua. Si paga de más, queda saldo a favor para el próximo recibo.</p>
+  <div><Button type="submit" size="md" class="!w-auto px-6">Registrar pago</Button></div>
+</form>
+
+<script>
+  // Mejora progresiva: la tasa solo se muestra si pagó en bolívares.
+  for (const form of document.querySelectorAll<HTMLFormElement>('[data-payment-form]')) {
+    const rate = form.querySelector<HTMLElement>('#pay-rate')?.closest<HTMLElement>('div.flex');
+    const sync = () => {
+      const ves = form.querySelector<HTMLInputElement>('input[name="currency"]:checked')?.value === 'VES';
+      if (rate) rate.hidden = !ves;
+      const label = form.querySelector('label[for="pay-amount"]');
+      if (label) label.textContent = ves ? 'Monto en Bs.' : 'Monto en USD';
+    };
+    form.addEventListener('change', sync);
+    sync();
+  }
+</script>

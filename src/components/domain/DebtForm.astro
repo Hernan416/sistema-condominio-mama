@@ -1,0 +1,30 @@
+---
+// Registrar una deuda existente (saldo anterior al sistema, acuerdo de pago, reparación…).
+import Button from '@/components/ui/Button.astro';
+import FormField from '@/components/ui/FormField.astro';
+
+interface Props {
+  action: string;
+  today: string;
+}
+
+const { action, today } = Astro.props;
+---
+
+<form method="post" action={action} class="flex flex-col gap-4">
+  <FormField id="debt-concept" name="concept" label="Concepto" placeholder="Ej.: Saldo pendiente al 31/08/2026" maxlength={120} required />
+  <div class="grid gap-4 sm:grid-cols-2">
+    <FormField id="debt-amount" name="amount" label="Monto (USD)" inputmode="decimal" placeholder="0,00" required />
+    <FormField id="debt-date" name="date" type="date" label="Fecha de origen" value={today} required hint="Define su antigüedad." />
+  </div>
+  <FormField
+    id="debt-detail"
+    name="detail"
+    label="Detalle (opcional)"
+    multiline
+    rows={2}
+    maxlength={500}
+    placeholder="Ej.: Cuotas de mayo a agosto 2026 sin pagar según libro de la administración anterior."
+  />
+  <div><Button type="submit" size="md" variant="secondary" class="!w-auto px-6">Agregar deuda</Button></div>
+</form>

@@ -1,0 +1,43 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import HouseAccountsTable from '@/components/domain/HouseAccountsTable.astro';
+import SummaryStrip from '@/components/ui/SummaryStrip.astro';
+import { getAccountService, getAppName } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { formatUsd } from '@/utils/currency';
+import { isoDateInCaracas } from '@/utils/dates';
+import { roundCents } from '@/utils/billingCalculator';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const accounts = [...(await getAccountService().accountsFor(condominium.id)).values()];
+const debtors = accounts.filter((a) => a.outstanding > 0);
+const today = isoDateInCaracas(new Date());
+---
+
+<AdminLayout title={`Casas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="casas"
+    rate={toExchangeRateView(rate)}
+    description="Datos de cada propietario y su estado de cuenta: recibos, deudas registradas, pagos y abonos."
+  />
+
+  <div class="flex flex-col gap-6">
+    <SummaryStrip
+      items={[
+        { label: 'Casas', value: String(accounts.length) },
+        { label: 'Con deuda', value: String(debtors.length), tone: debtors.length > 0 ? 'warning' : 'accent' },
+        { label: 'Deuda total', value: formatUsd(roundCents(accounts.reduce((s, a) => s + a.outstanding, 0))), tone: debtors.length > 0 ? 'warning' : 'default' },
+        { label: 'Saldos a favor', value: formatUsd(roundCents(accounts.reduce((s, a) => s + a.credit, 0))) },
+      ]}
+    />
+    <HouseAccountsTable slug={condominium.slug} accounts={accounts} today={today} />
+  </div>
+</AdminLayout>

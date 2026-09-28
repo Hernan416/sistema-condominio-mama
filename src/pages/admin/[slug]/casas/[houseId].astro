@@ -1,0 +1,96 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import AccountStatement from '@/components/domain/AccountStatement.astro';
+import PaymentForm from '@/components/domain/PaymentForm.astro';
+import DebtForm from '@/components/domain/DebtForm.astro';
+import HouseProfileForm from '@/components/domain/HouseProfileForm.astro';
+import Alert from '@/components/ui/Alert.astro';
+import Icon from '@/components/ui/Icon.astro';
+import SummaryStrip from '@/components/ui/SummaryStrip.astro';
+import { getAccountService, getAppName } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { formatUsd } from '@/utils/currency';
+import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const houseId = Astro.params.houseId ?? '';
+const accounts = await getAccountService().accountsFor(condominium.id);
+const account = accounts.get(houseId);
+if (!account) return Astro.redirect(`/admin/${condominium.slug}/casas`);
+const { house } = account;
+
+// Casa anterior / siguiente (para cargar datos de todas sin volver a la lista).
+const order = [...accounts.values()].map((a) => a.house);
+const index = order.findIndex((h) => h.id === houseId);
+const prev = order[index - 1];
+const next = order[index + 1];
+
+const today = isoDateInCaracas(new Date());
+const base = `/api/admin/${condominium.slug}/casas/${house.id}`;
+const ok = Astro.url.searchParams.get('ok')?.slice(0, 200) ?? null;
+const error = Astro.url.searchParams.get('error')?.slice(0, 300) ?? null;
+const suggested = Astro.url.searchParams.get('monto') ?? (account.outstanding > 0 ? account.outstanding.toFixed(2) : null);
+const todayRate = rate ? String(Math.round(rate.usdToVes * 10000) / 10000).replace('.', ',') : null;
+const lastPayment = account.payments[0] ?? null;
+---
+
+<AdminLayout title={`Casa ${house.number} · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+  <CondominiumHeader
+    name={condominium.name}
+    title={`Casa ${house.number}`}
+    slug={condominium.slug}
+    city={null}
+    active="casas"
+    rate={toExchangeRateView(rate)}
+    description={`${condominium.name} · ${house.ownerName ?? 'Sin propietario registrado'} · usuario ${house.username}`}
+  />
+
+  <nav aria-label="Navegación entre casas" class="mb-6 flex flex-wrap items-center justify-between gap-3 text-sm font-bold">
+    <a href={`/admin/${condominium.slug}/casas`} class="inline-flex items-center gap-1.5 text-accent no-underline hover:underline">← Todas las casas</a>
+    <span class="flex gap-4">
+      {prev && <a href={`/admin/${condominium.slug}/casas/${prev.id}`} class="text-ink-muted no-underline hover:text-ink">← Casa {prev.number}</a>}
+      {next && <a href={`/admin/${condominium.slug}/casas/${next.id}`} class="inline-flex items-center gap-1 text-ink-muted no-underline hover:text-ink">Casa {next.number} <Icon name="arrow-right" size={14} /></a>}
+    </span>
+  </nav>
+
+  <div class="flex flex-col gap-6">
+    {ok && <Alert tone="info">{ok}</Alert>}
+    {error && <Alert>{error}</Alert>}
+
+    <SummaryStrip
+      items={[
+        { label: 'Deuda pendiente', value: formatUsd(account.outstanding), tone: account.outstanding > 0 ? 'warning' : 'accent', hint: account.oldestPendingDate ? `La más antigua: ${formatDateVe(new Date(`${account.oldestPendingDate}T12:00:00-04:00`))}` : 'Al día' },
+        { label: 'Saldo a favor', value: formatUsd(account.credit), tone: account.credit > 0 ? 'accent' : 'default' },
+        { label: 'Total pagado', value: formatUsd(account.totalPaid), hint: `${account.payments.length} ${account.payments.length === 1 ? 'pago' : 'pagos'}` },
+        { label: 'Último pago', value: lastPayment ? formatUsd(lastPayment.amount) : '—', hint: lastPayment ? formatDateVe(new Date(`${lastPayment.date}T12:00:00-04:00`)) : 'Sin pagos' },
+      ]}
+    />
+
+    <div class="grid gap-6 xl:grid-cols-2">
+      <section id="pagos" aria-labelledby="pay-title" class="scroll-mt-6 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+        <h2 id="pay-title" class="font-display mb-4 text-2xl font-semibold">Registrar pago o abono</h2>
+        <PaymentForm action={`${base}/pagos`} today={today} suggestedAmount={suggested} todayRate={todayRate} />
+      </section>
+      <section id="deudas" aria-labelledby="debt-title" class="scroll-mt-6 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+        <h2 id="debt-title" class="font-display mb-1 text-2xl font-semibold">Agregar deuda existente</h2>
+        <p class="mb-4 text-sm text-ink-muted">Saldos de antes de usar el sistema, acuerdos de pago, reparaciones… Se cobran junto a los recibos, empezando por la más antigua.</p>
+        <DebtForm action={`${base}/deudas`} today={today} />
+      </section>
+    </div>
+
+    <div class="flex flex-col gap-6">
+      <h2 class="font-display text-2xl font-semibold">Estado de cuenta</h2>
+      <AccountStatement charges={account.charges} payments={account.payments} deletePaymentAction={`${base}/pagos-anular`} deleteDebtAction={`${base}/deudas-eliminar`} />
+    </div>
+
+    <section id="datos" aria-labelledby="profile-title" class="scroll-mt-6 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <h2 id="profile-title" class="font-display mb-4 text-2xl font-semibold">Datos de la casa</h2>
+      <HouseProfileForm action={`${base}/perfil`} house={house} />
+    </section>
+  </div>
+</AdminLayout>

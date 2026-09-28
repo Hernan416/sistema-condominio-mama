@@ -1,0 +1,28 @@
+---
+// Franja de cifras para páginas Astro (equivalente a StatStrip de React).
+interface Item {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: 'default' | 'accent' | 'warning';
+}
+
+interface Props {
+  items: Item[];
+}
+
+const { items } = Astro.props;
+const tone = { default: 'text-ink', accent: 'text-accent', warning: 'text-warning' };
+---
+
+<dl class:list={['grid grid-cols-2 overflow-hidden rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line', items.length >= 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3']}>
+  {
+    items.map((item) => (
+      <div class="flex flex-col gap-1 border-line px-5 py-4 [&:not(:last-child)]:sm:border-r">
+        <dt class="text-sm font-bold text-ink-muted">{item.label}</dt>
+        <dd class:list={['font-display text-3xl font-semibold', tone[item.tone ?? 'default']]}>{item.value}</dd>
+        {item.hint && <dd class="tabular text-sm text-ink-muted">{item.hint}</dd>}
+      </div>
+    ))
+  }
+</dl>

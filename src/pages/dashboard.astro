@@ -1,0 +1,30 @@
+---
+import ResidentLayout from '@/layouts/ResidentLayout.astro';
+import InvoiceDownloadPanel from '@/components/domain/InvoiceDownloadPanel.astro';
+import ResidentAccountCard from '@/components/domain/ResidentAccountCard.astro';
+import { getAccountService, getAppName, getInvoiceService } from '@/services/container';
+import { toResidentInvoiceView } from '@/adapters/invoiceViewAdapter';
+import { toResidentAccountView, toResidentPaymentState } from '@/adapters/residentAccountViewAdapter';
+
+// El middleware garantiza que existe la sesión.
+const resident = Astro.locals.resident!;
+const [{ condominium, invoice, exchangeRate }, account] = await Promise.all([
+  getInvoiceService().residentOverview(resident.houseId, resident.condominiumId),
+  getAccountService().residentAccount(resident.houseId, resident.condominiumId),
+]);
+const invoiceState = invoice ? (account?.charges.find((c) => c.id === invoice.id) ?? null) : null;
+---
+
+<ResidentLayout title="Mi factura" appName={getAppName()}>
+  <div slot="hero">
+    <p class="text-xl text-night-muted">{condominium?.name ?? 'Su conjunto'}</p>
+    <h1 class="font-display text-5xl font-semibold sm:text-6xl">Casa {resident.houseNumber}</h1>
+  </div>
+
+  <InvoiceDownloadPanel
+    invoice={invoice ? toResidentInvoiceView(invoice, exchangeRate) : null}
+    payment={toResidentPaymentState(invoiceState, exchangeRate)}
+    downloadHref="/api/invoices/download"
+  />
+  {account && <ResidentAccountCard account={toResidentAccountView(account, exchangeRate)} />}
+</ResidentLayout>

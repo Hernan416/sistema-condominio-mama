@@ -1,0 +1,86 @@
+---
+import Alert from '@/components/ui/Alert.astro';
+import Button from '@/components/ui/Button.astro';
+import FormField from '@/components/ui/FormField.astro';
+import type { CondominiumWithSettings } from '@/types/domain';
+
+interface Props {
+  condominium: CondominiumWithSettings;
+  saved: boolean;
+  error: string | null;
+}
+
+const { condominium: c, saved, error } = Astro.props;
+const s = c.settings;
+const pct = (n: number) => String(n).replace('.', ',');
+---
+
+<form method="post" action={`/api/admin/${c.slug}/settings`} class="flex flex-col gap-6">
+  {saved && <Alert tone="info">Datos guardados. Los próximos recibos ya los incluyen.</Alert>}
+  {error && <Alert>{error}</Alert>}
+
+  <section class="rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
+    <h2 class="font-display mb-1 text-2xl font-semibold">Encabezado del recibo</h2>
+    <p class="mb-5 text-sm text-ink-muted">Identifica a la junta de condominio y a quien administra.</p>
+    <div class="grid gap-4 md:grid-cols-2">
+      <FormField id="name" name="name" label="Nombre del condominio" value={c.name} required maxlength={120} />
+      <FormField id="city" name="city" label="Ciudad" value={c.city} maxlength={80} />
+      <FormField id="rif" name="rif" label="RIF de la junta de condominio" value={s.rif} placeholder="J-12345678-9" maxlength={20} />
+      <FormField id="address" name="address" label="Dirección" value={s.address} maxlength={200} />
+      <FormField id="administratorName" name="administratorName" label="Administradora (persona o empresa)" value={s.administratorName} maxlength={120} />
+      <FormField id="administratorRif" name="administratorRif" label="RIF o C.I. de la administradora" value={s.administratorRif} placeholder="V-12345678 / J-12345678-9" maxlength={20} />
+    </div>
+  </section>
+
+  <section class="rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
+    <h2 class="font-display mb-1 text-2xl font-semibold">Forma de pago</h2>
+    <p class="mb-5 text-sm text-ink-muted">Se imprime al pie de cada recibo. Use siempre cuentas a nombre de la comunidad, nunca de una persona.</p>
+    <FormField
+      id="paymentInstructions"
+      name="paymentInstructions"
+      label="Cuentas bancarias y pago móvil (una línea por dato)"
+      value={s.paymentInstructions}
+      multiline
+      rows={4}
+      maxlength={1000}
+      placeholder={'Pago móvil: Banco de Venezuela · 0414-0000000 · J-12345678-9\nTransferencia: Cuenta corriente 0102-0000-00-0000000000 · Junta de Condominio'}
+    />
+  </section>
+
+  <section class="rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
+    <h2 class="font-display mb-1 text-2xl font-semibold">Valores de facturación</h2>
+    <p class="mb-5 text-sm text-ink-muted">Se proponen cada mes; puede ajustarlos en la relación de gastos.</p>
+    <div class="grid gap-4 md:grid-cols-3">
+      <FormField
+        id="defaultReserveFundPercent"
+        name="defaultReserveFundPercent"
+        label="Fondo de reserva (%)"
+        value={pct(s.defaultReserveFundPercent)}
+        inputmode="decimal"
+        hint="La ley no lo fija: lo establece el documento de condominio o la asamblea (lo usual es 10 %)."
+      />
+      <FormField id="dueDay" name="dueDay" label="Día de vencimiento (mes siguiente)" value={s.dueDay} inputmode="numeric" hint="Entre 1 y 28." />
+      <FormField
+        id="lateInterestMonthlyPercent"
+        name="lateInterestMonthlyPercent"
+        label="Interés de mora mensual (%)"
+        value={pct(s.lateInterestMonthlyPercent)}
+        inputmode="decimal"
+        hint="Solo si lo aprobó la asamblea. 0 = no se cobra. Se calcula sobre la deuda, nunca sobre intereses."
+      />
+    </div>
+  </section>
+
+  <section id="caja" class="scroll-mt-6 rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
+    <h2 class="font-display mb-1 text-2xl font-semibold">Caja</h2>
+    <p class="mb-5 text-sm text-ink-muted">Lo que había en banco/caja al empezar a usar el sistema. El resumen suma los cobros y resta los gastos desde esa fecha.</p>
+    <div class="grid gap-4 md:grid-cols-2">
+      <FormField id="openingBalance" name="openingBalance" label="Saldo inicial (USD)" value={pct(s.openingBalance)} inputmode="decimal" hint="Puede ser negativo si había deudas con proveedores." />
+      <FormField id="openingBalanceDate" name="openingBalanceDate" type="date" label="Fecha del saldo inicial" value={s.openingBalanceDate} />
+    </div>
+  </section>
+
+  <div class="flex justify-end">
+    <Button type="submit" size="md" class="!w-auto px-6">Guardar datos del recibo</Button>
+  </div>
+</form>

@@ -1,0 +1,42 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import BillingSheetEditor from '@/components/domain/BillingSheetEditor';
+import { getAppName, getBillingService, getCondominiumService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateDto, toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { toBillingSheetDto, toUnitDto } from '@/adapters/invoiceDtoAdapter';
+import { currentPeriod } from '@/utils/months';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const period = currentPeriod();
+const [{ sheet, origin }, units, full] = await Promise.all([
+  getBillingService().getSheet(condominium, period),
+  getCondominiumService().listUnits(condominium),
+  getCondominiumService().getWithSettings(condominium),
+]);
+---
+
+<AdminLayout title={`Gastos · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="gastos"
+    rate={toExchangeRateView(rate)}
+    description="Cargue los gastos del mes (iguales para todos), los cargos o abonos de cada unidad y las notas personalizadas. Los totales se recalculan al instante."
+  />
+  <BillingSheetEditor
+    client:load
+    condominiumSlug={condominium.slug}
+    units={units.map(toUnitDto)}
+    initialPeriod={period}
+    initialSheet={toBillingSheetDto(sheet)}
+    initialOrigin={origin}
+    exchangeRate={toExchangeRateDto(rate)}
+    aliquotCategories={full.aliquotScheme.categories.map(({ id, name }) => ({ id, name }))}
+  />
+</AdminLayout>

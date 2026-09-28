@@ -1,0 +1,197 @@
+---
+// Columnas agrupadas: facturado, cobrado y gastos de los últimos meses (una sola escala, USD).
+// Paleta validada con validate_palette.js (claro sobre #ffffff, oscuro sobre #121c18):
+// pasa lightness, croma, CVD (ΔE 9,2 / 9,4) y visión normal. El aqua queda < 3:1 en claro,
+// por eso hay etiquetas del mes actual y la vista de tabla.
+import type { MonthFigures } from '@/services/metrics/MetricsService';
+import { formatUsd } from '@/utils/currency';
+
+interface Props {
+  months: MonthFigures[];
+}
+
+const { months } = Astro.props;
+const series = [
+  { key: 'billed', label: 'Facturado', color: 'var(--series-1)' },
+  { key: 'collected', label: 'Cobrado', color: 'var(--series-2)' },
+  { key: 'expenses', label: 'Gastos del condominio', color: 'var(--series-3)' },
+] as const;
+
+// Geometría (unidades del viewBox; el SVG escala al ancho del contenedor).
+const W = 720;
+const H = 260;
+const pad = { top: 28, right: 12, bottom: 34, left: 56 };
+const plotW = W - pad.left - pad.right;
+const plotH = H - pad.top - pad.bottom;
+
+// Escala Y con marcas "redondas".
+const max = Math.max(1, ...months.flatMap((m) => series.map((s) => m[s.key])));
+const rawStep = max / 4;
+const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+const step = [1, 2, 2.5, 5, 10].map((f) => f * magnitude).find((v) => v >= rawStep) ?? rawStep;
+const top = Math.ceil(max / step) * step;
+const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
+const y = (v: number) => pad.top + plotH - (v / top) * plotH;
+
+const groupW = plotW / months.length;
+const barW = Math.min(16, (groupW - 24) / series.length - 2);
+const gap = 2;
+const clusterW = series.length * barW + (series.length - 1) * gap;
+const radius = 4;
+
+/** Columna con esquinas superiores redondeadas (base cuadrada en la línea de base). */
+const bar = (x: number, value: number) => {
+  const yTop = y(value);
+  const h = pad.top + plotH - yTop;
+  if (h <= 0) return '';
+  const r = Math.min(radius, h, barW / 2);
+  const base = pad.top + plotH;
+  return `M${x},${base} V${yTop + r} Q${x},${yTop} ${x + r},${yTop} H${x + barW - r} Q${x + barW},${yTop} ${x + barW},${yTop + r} V${base} Z`;
+};
+const compact = (v: number) => (v >= 1000 ? `$${new Intl.NumberFormat('es-VE', { maximumFractionDigits: 1 }).format(v / 1000)} mil` : `$${Math.round(v)}`);
+const last = months.length - 1;
+---
+
+<figure class="viz-root flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line" data-trend-chart>
+  <figcaption class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 class="font-display text-2xl font-semibold">Últimos 6 meses</h2>
+      <p class="text-sm text-ink-muted">Facturado, cobrado y gastos del condominio, en USD.</p>
+    </div>
+    <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted" aria-label="Leyenda">
+      {series.map((s) => (
+        <li class="inline-flex items-center gap-2"><span class="inline-block size-3 rounded-[3px]" style={`background:${s.color}`}></span>{s.label}</li>
+      ))}
+    </ul>
+  </figcaption>
+
+  <div class="relative">
+    <svg viewBox={`0 0 ${W} ${H}`} class="block h-auto w-full" role="img" aria-label="Gráfico de columnas: facturado, cobrado y gastos por mes. La tabla debajo tiene los mismos datos.">
+      {ticks.map((t) => (
+        <g>
+          <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke="var(--viz-grid)" stroke-width="1" />
+          <text x={pad.left - 8} y={y(t)} dy="0.32em" text-anchor="end" class="tabular" font-size="11" fill="var(--viz-muted)">{compact(t)}</text>
+        </g>
+      ))}
+      {months.map((m, gi) => {
+        const x0 = pad.left + gi * groupW + (groupW - clusterW) / 2;
+        return (
+          <g>
+            {series.map((s, si) => <path d={bar(x0 + si * (barW + gap), m[s.key])} fill={s.color} class="viz-bar" />)}
+            {gi === last &&
+              series.map((s, si) =>
+                m[s.key] > 0 ? (
+                  <text x={x0 + si * (barW + gap) + barW / 2} y={y(m[s.key]) - 6} text-anchor="middle" font-size="10" font-weight="700" fill="var(--viz-text)">
+                    {Math.round(m[s.key])}
+                  </text>
+                ) : null,
+              )}
+            <text x={pad.left + gi * groupW + groupW / 2} y={H - 12} text-anchor="middle" font-size="12" fill="var(--viz-muted)" font-weight={gi === last ? '700' : '400'}>{m.label}</text>
+            {/* Zona de hover/foco: toda la columna del mes (más grande que las barras). */}
+            <rect
+              x={pad.left + gi * groupW}
+              y={pad.top}
+              width={groupW}
+              height={plotH}
+              fill="transparent"
+              tabindex="0"
+              class="viz-hit outline-none"
+              data-label={m.label}
+              data-values={JSON.stringify(series.map((s) => [s.label, formatUsd(m[s.key]), s.color]))}
+            />
+          </g>
+        );
+      })}
+      <line x1={pad.left} x2={W - pad.right} y1={pad.top + plotH} y2={pad.top + plotH} stroke="var(--viz-axis)" stroke-width="1" />
+    </svg>
+    <div role="tooltip" class="viz-tooltip pointer-events-none absolute z-10 hidden min-w-44 rounded-xl bg-surface px-3 py-2 text-sm shadow-[var(--shadow-float)] ring-1 ring-line"></div>
+  </div>
+
+  <details class="text-sm">
+    <summary class="cursor-pointer font-bold text-accent">Ver como tabla</summary>
+    <div class="mt-3 overflow-x-auto">
+      <table class="w-full min-w-[420px]">
+        <thead>
+          <tr class="border-b border-line text-left text-xs uppercase tracking-[0.08em] text-ink-muted">
+            <th scope="col" class="py-2 pr-4">Mes</th>
+            {series.map((s) => <th scope="col" class="py-2 pr-4 text-right">{s.label}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((m) => (
+            <tr class="border-b border-line last:border-b-0">
+              <th scope="row" class="py-2 pr-4 text-left font-bold">{m.label}</th>
+              {series.map((s) => <td class="tabular py-2 pr-4 text-right">{formatUsd(m[s.key])}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<style>
+  .viz-root {
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --viz-grid: var(--color-line);
+    --viz-axis: var(--color-line-strong);
+    --viz-text: var(--color-ink);
+    --viz-muted: var(--color-ink-muted);
+  }
+  :global(:root[data-theme='dark']) .viz-root {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+  }
+  .viz-hit:focus-visible {
+    stroke: var(--color-accent);
+    stroke-width: 2;
+  }
+</style>
+
+<script>
+  // Tooltip por mes: lista las tres series. Todo el contenido se inserta con textContent.
+  for (const chart of document.querySelectorAll<HTMLElement>('[data-trend-chart]')) {
+    const tip = chart.querySelector<HTMLElement>('.viz-tooltip')!;
+    const wrap = tip.parentElement!;
+    const show = (hit: SVGRectElement) => {
+      const values = JSON.parse(hit.dataset.values ?? '[]') as [string, string, string][];
+      tip.replaceChildren();
+      const title = document.createElement('p');
+      title.className = 'mb-1 font-bold';
+      title.textContent = hit.dataset.label ?? '';
+      tip.append(title);
+      for (const [label, value, color] of values) {
+        const row = document.createElement('p');
+        row.className = 'flex items-center justify-between gap-4';
+        const key = document.createElement('span');
+        key.className = 'inline-flex items-center gap-2 text-ink-muted';
+        const line = document.createElement('span');
+        line.className = 'inline-block h-0.5 w-3 rounded';
+        line.style.background = color;
+        key.append(line, document.createTextNode(label));
+        const val = document.createElement('strong');
+        val.className = 'tabular';
+        val.textContent = value;
+        row.append(key, val);
+        tip.append(row);
+      }
+      const box = hit.getBoundingClientRect();
+      const host = wrap.getBoundingClientRect();
+      tip.hidden = false;
+      tip.classList.remove('hidden');
+      const left = Math.min(Math.max(0, box.left - host.left + box.width / 2 - tip.offsetWidth / 2), host.width - tip.offsetWidth);
+      tip.style.left = `${left}px`;
+      tip.style.top = `${Math.max(0, box.top - host.top - 8)}px`;
+    };
+    const hide = () => tip.classList.add('hidden');
+    for (const hit of chart.querySelectorAll<SVGRectElement>('.viz-hit')) {
+      hit.addEventListener('pointerenter', () => show(hit));
+      hit.addEventListener('focus', () => show(hit));
+      hit.addEventListener('pointerleave', hide);
+      hit.addEventListener('blur', hide);
+    }
+  }
+</script>

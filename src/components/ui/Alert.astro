@@ -1,0 +1,25 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+
+type Tone = 'danger' | 'warning' | 'info';
+
+interface Props {
+  tone?: Tone;
+}
+
+const { tone = 'danger' } = Astro.props;
+
+const tones: Record<Tone, { box: string; icon: 'lock' | 'clock' | 'check' }> = {
+  danger: { box: 'bg-danger-tint text-danger ring-danger/20', icon: 'lock' },
+  warning: { box: 'bg-warning-tint text-warning ring-warning/20', icon: 'clock' },
+  info: { box: 'bg-accent-tint text-accent-strong ring-accent/20', icon: 'check' },
+};
+---
+
+<div
+  role={tone === 'info' ? 'status' : 'alert'}
+  class:list={['flex items-start gap-3 rounded-[var(--radius-control)] px-4 py-3.5 text-lg font-bold ring-1 ring-inset', tones[tone].box]}
+>
+  <Icon name={tones[tone].icon} size={22} class="mt-0.5 shrink-0" />
+  <div><slot /></div>
+</div>

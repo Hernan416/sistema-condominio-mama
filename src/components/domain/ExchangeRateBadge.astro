@@ -1,0 +1,31 @@
+---
+// Muestra la tasa del día (o avisa que no hay). Solo presentación: recibe textos ya formateados.
+import type { ExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+
+interface Props {
+  rate: ExchangeRateView | null;
+  tone?: 'surface' | 'night';
+}
+
+const { rate, tone = 'surface' } = Astro.props;
+---
+
+<p
+  class:list={[
+    'inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-full px-4 py-2 text-base',
+    tone === 'night' ? 'bg-night-raised text-night-muted ring-1 ring-night-line' : 'bg-surface text-ink-muted ring-1 ring-line',
+  ]}
+>
+  <span class:list={['size-2 rounded-full', rate ? 'bg-accent' : 'bg-warning']} aria-hidden="true"></span>
+  {
+    rate ? (
+      <>
+        <span>Tasa {rate.source}</span>
+        <strong class:list={['tabular', tone === 'night' ? 'text-night-ink' : 'text-ink']}>{rate.rateLabel}</strong>
+        <span>por USD · {rate.dateLabel}</span>
+      </>
+    ) : (
+      <span>Tasa del día no disponible: montos solo en USD</span>
+    )
+  }
+</p>

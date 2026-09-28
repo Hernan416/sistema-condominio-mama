@@ -1,0 +1,70 @@
+---
+// Navegación del panel: barra lateral en escritorio, franja superior con chips en móvil.
+import BrandMark from '@/components/ui/BrandMark.astro';
+import Icon from '@/components/ui/Icon.astro';
+import ThemeToggle from '@/components/ui/ThemeToggle.astro';
+import type { Condominium } from '@/types/domain';
+
+interface Props {
+  appName: string;
+  adminEmail: string | null;
+  condominiums: Condominium[];
+  activeSlug: string | null;
+}
+
+const { appName, adminEmail, condominiums, activeSlug } = Astro.props;
+const onOverview = activeSlug === null;
+
+const itemClass = (active: boolean) =>
+  [
+    'flex min-h-11 items-center gap-2.5 rounded-xl px-3 text-[0.95rem] font-bold no-underline transition-colors',
+    active ? 'bg-night-raised text-night-ink ring-1 ring-night-line' : 'text-night-muted hover:bg-night-raised/60 hover:text-night-ink',
+  ].join(' ');
+---
+
+<!-- El fondo ocupa toda la columna; el contenido queda fijo al hacer scroll. -->
+<header class="on-night night-texture text-night-ink">
+  <div class="flex flex-col gap-6 px-4 py-5 lg:sticky lg:top-0 lg:h-dvh lg:py-7">
+    <div class="flex items-center justify-between gap-4">
+      <a href="/admin" class="no-underline"><BrandMark name={appName} tone="night" size="sm" /></a>
+      <div class="flex items-center gap-1 lg:hidden">
+        <ThemeToggle tone="night" />
+        <form method="post" action="/api/auth/logout">
+          <button type="submit" class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-bold text-night-muted hover:text-night-ink">
+            <Icon name="logout" size={18} /> Salir
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <nav aria-label="Panel" class="flex flex-col gap-6 lg:flex-1 lg:overflow-y-auto">
+      <div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0">
+        <a href="/admin" class={itemClass(onOverview) + ' shrink-0'} aria-current={onOverview ? 'page' : undefined}>
+          <Icon name="grid" size={20} /> Resumen
+        </a>
+        <p class="mt-5 hidden px-3 text-xs font-bold uppercase tracking-[0.12em] text-night-muted lg:block">Condominios</p>
+        {
+          condominiums.map((c) => {
+            const active = c.slug === activeSlug;
+            return (
+              <a href={`/admin/${c.slug}`} class={itemClass(active) + ' shrink-0'} aria-current={active ? 'page' : undefined}>
+                <Icon name="building" size={20} />
+                <span class="truncate">{c.name}</span>
+              </a>
+            );
+          })
+        }
+      </div>
+    </nav>
+
+    <div class="hidden flex-col gap-1 border-t border-night-line pt-5 lg:flex">
+      {adminEmail && <p class="mb-1 truncate px-3 text-sm text-night-muted">{adminEmail}</p>}
+      <ThemeToggle tone="night" showLabel class="justify-start !rounded-xl !px-3" />
+      <form method="post" action="/api/auth/logout">
+        <button type="submit" class={itemClass(false) + ' w-full cursor-pointer'}>
+          <Icon name="logout" size={20} /> Salir
+        </button>
+      </form>
+    </div>
+  </div>
+</header>

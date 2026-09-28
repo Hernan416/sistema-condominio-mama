@@ -1,0 +1,36 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import InvoiceGenerator from '@/components/domain/InvoiceGenerator';
+import { getAppName, getBillingService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateDto, toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { toInvoiceRowDto } from '@/adapters/invoiceDtoAdapter';
+import { currentPeriod } from '@/utils/months';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const period = currentPeriod();
+const { units, origin } = await getBillingService().preview(condominium, period);
+---
+
+<AdminLayout title={`Facturas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="facturas"
+    rate={toExchangeRateView(rate)}
+    description="Revise el total de cada unidad, emita los recibos y registre los pagos. Los montos salen de la relación de gastos del mes."
+  />
+  <InvoiceGenerator
+    client:load
+    condominiumSlug={condominium.slug}
+    initialPeriod={period}
+    initialRows={units.map(toInvoiceRowDto)}
+    initialSheetSaved={origin === 'saved'}
+    exchangeRate={toExchangeRateDto(rate)}
+  />
+</AdminLayout>
