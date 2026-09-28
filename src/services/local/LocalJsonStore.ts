@@ -86,7 +86,7 @@ export class LocalJsonStore {
     const seed = buildLocalSeed();
     await this.save(seed);
     console.info(`[local] Base de datos ${reason}: ${this.filePath}`);
-    console.info('[local] Residentes de prueba: 3a-1 … 3a-12 y 3b-1 … 3b-12 — PIN 1234');
+    console.info('[local] Residentes: 3a-1 … 3a-33 y 3b-1 … 3b-38 — cada uno crea su PIN al entrar la primera vez');
     return seed;
   }
 

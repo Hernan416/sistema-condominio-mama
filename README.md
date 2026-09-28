@@ -27,15 +27,21 @@ npm install
 npm run dev
 ```
 
-No hace falta `.env`. Al primer uso se crea `.local-data/db.json` con dos condominios de prueba (Manzana 3-A y 3-B, cuota de 30 USD). Sin internet, usa `EXCHANGE_RATE_PROVIDER=fixed` y `EXCHANGE_RATE_FIXED=855.66`. Para empezar de cero, borra `.local-data/`.
+No hace falta `.env`. Al primer uso se crea `.local-data/db.json` con los dos condominios (Manzana 3-A con 33 casas y 3-B con 38; alícuotas iguales de prueba hasta cargar las reales). Sin internet, usa `EXCHANGE_RATE_PROVIDER=fixed` y `EXCHANGE_RATE_FIXED=855.66`. Para empezar de cero, borra `.local-data/`.
 
 | Quién | Usuario | PIN |
 |---|---|---|
 | Administradora María González (todos los condominios) | `maria` | `2508` |
-| Residentes de Manzana 3-A | `3a-1` … `3a-12` | `1234` |
-| Residentes de Manzana 3-B | `3b-1` … `3b-12` | `1234` |
+| Residentes de Manzana 3-A (33 casas) | `3a-1` … `3a-33` | Lo crean obligatoriamente la primera vez que entran |
+| Residentes de Manzana 3-B (38 casas) | `3b-1` … `3b-38` | Lo crean obligatoriamente la primera vez que entran |
 
-> Son PIN de prueba: cámbielos antes de usar el sistema con datos reales.
+**PIN de los residentes** (solo cambios en la tabla `users`, sin correo ni verificaciones):
+
+- **Primera vez:** el residente escribe su usuario y toca «Entrar» (sin PIN). El sistema le pide inventar 4 números dos veces y entra.
+- **¿Olvidó su PIN?:** en el ingreso, o «Cambiar mi PIN» en su cuenta. Escribe su usuario y 4 números nuevos; el anterior deja de funcionar.
+- Solo residentes: la administradora no puede usar «olvidé mi PIN» (si no, cualquiera tomaría el panel). Si María olvida el suyo, se cambia en la tabla `users`.
+
+> El PIN de la administradora es de prueba: cámbielo antes de usar el sistema con datos reales.
 
 ## Panel del administrador
 

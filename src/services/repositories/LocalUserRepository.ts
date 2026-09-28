@@ -20,4 +20,11 @@ export class LocalUserRepository implements UserRepository {
       if (row) Object.assign(row, { failed_attempts: failedAttempts, locked_until: lockedUntil?.toISOString() ?? null });
     });
   }
+
+  async setPin(userId: string, pinHash: string): Promise<void> {
+    await this.store.transaction((db) => {
+      const row = db.users.find((u) => u.id === userId);
+      if (row) Object.assign(row, { pin_hash: pinHash, failed_attempts: 0, locked_until: null });
+    });
+  }
 }

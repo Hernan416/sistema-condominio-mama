@@ -151,7 +151,8 @@ export type UserRole = 'admin' | 'resident';
 export interface UserCredentials {
   id: string;
   username: string;
-  pinHash: string;
+  /** null = todavía no tiene PIN (residente que aún no lo ha creado). */
+  pinHash: string | null;
   role: UserRole;
   displayName: string | null;
   houseId: string | null;

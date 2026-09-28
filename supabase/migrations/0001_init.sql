@@ -179,7 +179,23 @@ create table if not exists public.exchange_rates (
 create table if not exists public.users (
   id               uuid primary key default gen_random_uuid(),
   -- Usuario de acceso, único (ej. "maria", "3b-12"): minúsculas, números y guiones.
-  username         text not null unique check (username ~ '^[a-z0-9]+(-[a-z0-9]+)*
+  username         text not null unique check (username ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+  -- "scrypt$<sal>$<hash>" (lo genera la app). null = el residente aún no ha creado su PIN:
+  -- lo crea al entrar la primera vez, y si lo olvida pone uno nuevo (sin correo).
+  pin_hash         text,
+  role             text not null check (role in ('admin', 'resident')),
+  display_name     text,                 -- "María González"
+  house_id         uuid references public.houses (id) on delete cascade,
+  failed_attempts  smallint not null default 0,
+  locked_until     timestamptz,
+  created_at       timestamptz not null default now(),
+  -- Un residente siempre pertenece a una casa; la administradora no.
+  constraint users_resident_has_house check (role = 'admin' or house_id is not null),
+  -- La administradora siempre tiene PIN (no puede usar "olvidé mi PIN").
+  constraint users_admin_has_pin check (role = 'resident' or pin_hash is not null)
+);
+
+create index if not exists users_house_idx on public.users (house_id);
 
 -- ─── Columnas agregadas después (idempotente, para bases ya creadas) ─────────
 alter table public.condominiums add column if not exists opening_balance numeric(14, 2) not null default 0;

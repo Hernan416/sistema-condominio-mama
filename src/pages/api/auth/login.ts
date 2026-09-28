@@ -13,6 +13,8 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     const result = await getLoginService(cookies).login(identifier, secret);
     if (result.status === 'admin') return redirect('/admin', 303);
     if (result.status === 'resident') return redirect('/dashboard', 303);
+    // Primera vez: todavía no tiene PIN → a crearlo.
+    if (result.status === 'needs_pin') return redirect(`/pin?modo=crear&usuario=${encodeURIComponent(result.username)}`, 303);
     return back(result.status);
   } catch (error) {
     console.error('[login]', error);

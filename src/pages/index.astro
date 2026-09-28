@@ -4,8 +4,8 @@ import AuthLayout from '@/layouts/AuthLayout.astro';
 import LoginShowcase from '@/components/domain/LoginShowcase.astro';
 import UnifiedLoginForm, { type LoginError } from '@/components/domain/UnifiedLoginForm.astro';
 
-const ERRORS: LoginError[] = ['invalid', 'locked', 'format', 'server', 'expired'];
-const rawError = Astro.url.searchParams.get('error');
+const ERRORS: LoginError[] = ['invalid', 'locked', 'format', 'server', 'expired', 'ya-tiene-pin'];
+const rawError = Astro.url.searchParams.get('error') ?? Astro.url.searchParams.get('aviso');
 const error = ERRORS.find((e) => e === rawError) ?? null;
 const identifier = Astro.url.searchParams.get('usuario') ?? '';
 ---
@@ -14,6 +14,6 @@ const identifier = Astro.url.searchParams.get('usuario') ?? '';
   <LoginShowcase slot="showcase" />
 
   <h1 class="font-display mb-3 text-4xl font-semibold sm:text-5xl">Ingresar</h1>
-  <p class="mb-10 text-xl leading-relaxed text-ink-muted">Escriba su usuario y su clave para ver su factura o administrar su conjunto.</p>
+  <p class="mb-10 text-xl leading-relaxed text-ink-muted">Escriba su usuario y su PIN para ver su cuenta o administrar su conjunto.</p>
   <UnifiedLoginForm error={error} identifier={identifier} />
 </AuthLayout>

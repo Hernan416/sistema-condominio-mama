@@ -23,4 +23,9 @@ export class SupabaseUserRepository implements UserRepository {
       .eq('id', userId);
     if (error) throw new Error(`No se pudo actualizar el usuario: ${error.message}`);
   }
+
+  async setPin(userId: string, pinHash: string): Promise<void> {
+    const { error } = await this.db.from('users').update({ pin_hash: pinHash, failed_attempts: 0, locked_until: null }).eq('id', userId);
+    if (error) throw new Error(`No se pudo guardar el PIN: ${error.message}`);
+  }
 }

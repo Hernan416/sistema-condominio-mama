@@ -41,7 +41,8 @@ export interface HouseRow {
 export interface UserRow {
   id: string;
   username: string;
-  pin_hash: string;
+  /** null = el residente todavía no ha creado su PIN (lo crea al entrar la primera vez). */
+  pin_hash: string | null;
   role: 'admin' | 'resident';
   display_name: string | null;
   /** Casa del residente (null para administradores). */

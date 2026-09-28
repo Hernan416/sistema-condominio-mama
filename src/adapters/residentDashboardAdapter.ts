@@ -50,6 +50,7 @@ export function toResidentDashboardView({ account, selectedInvoiceId, todayRate,
 
   return {
     houseNumber: account.house.number,
+    username: account.house.username,
     ownerName: account.house.ownerName,
     aliquotLabel: formatPercent(account.house.aliquot),
     todayRateLabel: todayRate ? `Bs. ${rateFormat.format(todayRate.usdToVes)} por dólar (${todayRate.source}, ${formatDateVe(todayRate.publishedAt)})` : null,

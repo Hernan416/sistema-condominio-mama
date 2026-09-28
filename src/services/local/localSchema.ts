@@ -7,7 +7,7 @@ import type { BillingSheetRow, CondominiumRow, ExchangeRateRow, HouseDebtRow, Ho
  * Sube este número cuando cambie la forma del archivo. Si hay una migración registrada
  * (localMigrations.ts), se conservan los datos; si no, se regenera con datos de prueba.
  */
-export const LOCAL_SCHEMA_VERSION = 11;
+export const LOCAL_SCHEMA_VERSION = 13;
 
 /** La casa guardada (sin el join de usuarios, que se arma al leer). */
 export type LocalHouseRecord = Omit<HouseRow, 'users'>;

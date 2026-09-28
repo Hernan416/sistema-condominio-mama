@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button.astro';
 import Icon from '@/components/ui/Icon.astro';
 import TextField from '@/components/ui/TextField.astro';
 
-export type LoginError = 'invalid' | 'locked' | 'format' | 'server' | 'expired';
+export type LoginError = 'invalid' | 'locked' | 'format' | 'server' | 'expired' | 'ya-tiene-pin';
 
 interface Props {
   error?: LoginError | null;
@@ -17,12 +17,14 @@ const { error = null, identifier = '' } = Astro.props;
 
 const messages: Record<LoginError, { tone: 'danger' | 'warning'; text: string }> = {
   invalid: { tone: 'danger', text: 'El usuario o el PIN no coinciden. Revíselos e intente de nuevo.' },
-  locked: { tone: 'warning', text: 'Por seguridad, el acceso está pausado 15 minutos. Intente más tarde o llame a la administración.' },
+  locked: { tone: 'warning', text: 'Se equivocó varias veces y el acceso quedó pausado 15 minutos. Si no recuerda su PIN, toque «¿Olvidó su PIN?» y ponga uno nuevo.' },
   format: { tone: 'danger', text: 'Escriba su usuario y su PIN.' },
   server: { tone: 'danger', text: 'No pudimos entrar en este momento. Intente de nuevo en unos minutos.' },
   expired: { tone: 'warning', text: 'Su sesión terminó. Vuelva a entrar.' },
+  'ya-tiene-pin': { tone: 'warning', text: 'Este usuario ya tiene PIN: escríbalo para entrar. Si no lo recuerda, toque «¿Olvidó su PIN?».' },
 };
 const invalid = error === 'invalid' || error === 'format';
+
 ---
 
 <form method="post" action="/api/auth/login" class="flex flex-col gap-7" data-login-form novalidate>
@@ -48,7 +50,7 @@ const invalid = error === 'invalid' || error === 'format';
     name="secret"
     type="password"
     label="PIN"
-    hint="Sus 4 números."
+    hint="Sus 4 números. ¿Primera vez? Déjelo vacío y toque Entrar: le pediremos crearlo."
     autocomplete="current-password"
     inputmode="numeric"
     maxlength={4}
@@ -74,7 +76,7 @@ const invalid = error === 'invalid' || error === 'format';
     <Icon name="arrow-right" size={24} class="transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover:translate-x-1" />
   </Button>
 
-  <p class="text-lg text-ink-muted">¿Olvidó su PIN? Comuníquese con la administración de su conjunto.</p>
+  <a href="/pin?modo=olvido" class="inline-flex min-h-12 items-center justify-center rounded-[var(--radius-control)] text-lg font-bold text-accent no-underline ring-1 ring-line hover:bg-sunken">¿Olvidó su PIN? Cámbielo aquí</a>
 </form>
 
 <script>

@@ -1,0 +1,29 @@
+---
+// /pin?modo=crear&usuario=3b-12  → primera vez: crear el PIN.
+// /pin?modo=olvido               → olvidó el PIN: escribir su usuario y uno nuevo.
+import { getAppName } from '@/services/container';
+import AuthLayout from '@/layouts/AuthLayout.astro';
+import LoginShowcase from '@/components/domain/LoginShowcase.astro';
+import PinSetupForm, { type PinFormError } from '@/components/domain/PinSetupForm.astro';
+
+const q = Astro.url.searchParams;
+const username = (q.get('usuario') ?? '').trim().toLowerCase().slice(0, 60);
+// "crear" necesita el usuario (viene del login); sin él, es el caso "olvidé mi PIN".
+const mode = q.get('modo') === 'crear' && username ? 'crear' : 'olvido';
+const ERRORS: PinFormError[] = ['unknown', 'mismatch', 'format', 'not_allowed', 'server'];
+const error = ERRORS.find((e) => e === q.get('error')) ?? null;
+---
+
+<AuthLayout title={mode === 'crear' ? 'Crear mi PIN' : 'Olvidé mi PIN'} appName={getAppName()}>
+  <LoginShowcase slot="showcase" />
+
+  <h1 class="font-display mb-3 text-4xl font-semibold sm:text-5xl">{mode === 'crear' ? 'Cree su PIN para entrar' : '¿Olvidó su PIN?'}</h1>
+  <p class="mb-10 text-xl leading-relaxed text-ink-muted">
+    {
+      mode === 'crear'
+        ? 'Es la primera vez que entra. Elija 4 números: los usará cada vez que entre.'
+        : 'No se preocupe: escriba su usuario y elija 4 números nuevos. El PIN anterior deja de funcionar.'
+    }
+  </p>
+  <PinSetupForm mode={mode} username={username} error={error} />
+</AuthLayout>

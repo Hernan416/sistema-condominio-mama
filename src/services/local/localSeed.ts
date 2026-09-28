@@ -6,7 +6,7 @@ import { hashPin } from '@/services/auth/pinHasher';
 import { LOCAL_SCHEMA_VERSION, type LocalDatabase, type LocalHouseRecord } from '@/services/local/localSchema';
 import type { BillingSheetRow, CondominiumRow, UserRow } from '@/types/database';
 
-/** Mismos datos que supabase/seed.sql. Montos en USD. PIN de todas las casas de prueba: 1234. */
+/** Mismos datos que supabase/seed.sql. Montos en USD. Los residentes empiezan SIN PIN (lo crean al entrar). */
 
 /** Administradora de prueba (usuario + PIN, como todos). Cámbiele el PIN al pasar a producción. */
 export const DEMO_ADMIN = { username: 'maria', pin: '2508', name: 'María González' };
@@ -15,10 +15,10 @@ export const DEMO_ADMIN = { username: 'maria', pin: '2508', name: 'María Gonzá
 export function userRecord(fields: Pick<UserRow, 'username' | 'pin_hash' | 'role' | 'display_name' | 'house_id'> & Partial<UserRow>): UserRow {
   return { id: randomUUID(), failed_attempts: 0, locked_until: null, created_at: new Date().toISOString(), ...fields };
 }
-const UNITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-const SEED = [
-  { name: 'Manzana 3-A', slug: 'manzana-3-a', prefix: '3a', rif: 'J-00000000-1' },
-  { name: 'Manzana 3-B', slug: 'manzana-3-b', prefix: '3b', rif: 'J-00000000-2' },
+/** Condominios reales y su cantidad de casas (numeradas 1…N; usuario "<prefijo>-<número>"). */
+export const CONDOMINIUM_LAYOUT = [
+  { name: 'Manzana 3-A', slug: 'manzana-3-a', prefix: '3a', rif: 'J-00000000-1', houses: 33 },
+  { name: 'Manzana 3-B', slug: 'manzana-3-b', prefix: '3b', rif: 'J-00000000-2', houses: 38 },
 ];
 
 /** Datos del recibo de ejemplo (a reemplazar por los reales en "Datos del condominio"). */
@@ -71,8 +71,6 @@ export function demoBillingSheet(condominiumId: string, houseIds: string[], peri
 
 export function buildLocalSeed(): LocalDatabase {
   const period = currentPeriod();
-  const pinHash = hashPin('1234');
-  const aliquots = equalAliquots(UNITS.length);
   const db: LocalDatabase = {
     version: LOCAL_SCHEMA_VERSION,
     condominiums: [],
@@ -85,12 +83,14 @@ export function buildLocalSeed(): LocalDatabase {
     users: [userRecord({ username: DEMO_ADMIN.username, pin_hash: hashPin(DEMO_ADMIN.pin), role: 'admin', display_name: DEMO_ADMIN.name, house_id: null })],
   };
 
-  for (const c of SEED) {
+  for (const c of CONDOMINIUM_LAYOUT) {
     const condominium: CondominiumRow = { id: randomUUID(), name: c.name, slug: c.slug, city: 'Isla de Margarita', ...demoCondominiumSettings(c.rif) };
     db.condominiums.push(condominium);
 
     const ids: string[] = [];
-    UNITS.forEach((unit, i) => {
+    // Alícuotas iguales de prueba (suman 100 %); las reales se cargan con los datos de cada casa.
+    const aliquots = equalAliquots(c.houses);
+    Array.from({ length: c.houses }, (_, i) => String(i + 1)).forEach((unit, i) => {
       const house: LocalHouseRecord = {
         id: randomUUID(),
         condominium_id: condominium.id,
@@ -108,7 +108,7 @@ export function buildLocalSeed(): LocalDatabase {
       };
       ids.push(house.id);
       db.houses.push(house);
-      db.users.push(userRecord({ username: `${c.prefix}-${unit}`, pin_hash: pinHash, role: 'resident', display_name: house.owner_name, house_id: house.id }));
+      db.users.push(userRecord({ username: `${c.prefix}-${unit}`, pin_hash: null, role: 'resident', display_name: house.owner_name, house_id: house.id }));
     });
     db.billing_sheets.push(demoBillingSheet(condominium.id, ids, period));
   }

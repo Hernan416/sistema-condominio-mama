@@ -2,27 +2,37 @@
 -- Datos de prueba (SOLO desarrollo) — mismos datos que el modo local.
 -- Montos en USD. Todos entran con usuario + PIN (tabla users):
 --   Administradora: maria (PIN 2508) — cámbielo antes de producción
---   Manzana 3-A:    3a-1 … 3a-12 (PIN 1234)
---   Manzana 3-B:    3b-1 … 3b-12 (PIN 1234)
+--   Manzana 3-A:    33 casas, usuarios 3a-1 … 3a-33
+--   Manzana 3-B:    38 casas, usuarios 3b-1 … 3b-38
+--   Los residentes deben crear su PIN obligatoriamente la primera vez que entran; sin PIN no
+--   pueden entrar a su cuenta. Después entran con usuario + PIN.
 -- ============================================================================
 insert into public.condominiums (name, slug, city) values
   ('Manzana 3-A', 'manzana-3-a', 'Isla de Margarita'),
   ('Manzana 3-B', 'manzana-3-b', 'Isla de Margarita')
 on conflict (slug) do nothing;
 
+-- Casas numeradas 1…N. Alícuotas de prueba en partes iguales con 4 decimales; el residuo va a
+-- la casa 1 para sumar exactamente 100 % (igual que equalAliquots en el código). Las reales se
+-- cargan después con los datos de cada casa.
 insert into public.houses (condominium_id, number, owner_name, aliquot)
 select c.id,
        n::text,
        'Propietario casa ' || n,
-       case when n = 1 then 8.3337 else 8.3333 end  -- 12 casas iguales: suman 100
-  from public.condominiums c, generate_series(1, 12) as n
- where c.slug in ('manzana-3-a', 'manzana-3-b')
+       case when n = 1
+            then round(100 - floor(100.0 / t.total * 10000) / 10000 * (t.total - 1), 4)
+            else floor(100.0 / t.total * 10000) / 10000
+       end
+  from (values ('manzana-3-a', 33), ('manzana-3-b', 38)) as t (slug, total)
+  join public.condominiums c on c.slug = t.slug
+ cross join lateral generate_series(1, t.total) as n
 on conflict do nothing;
 
--- Un usuario residente por casa (ej. "3b-12"). Hash scrypt del PIN 1234 (lo genera la app).
+-- Un usuario residente por casa (ej. "3b-12"). pin_hash queda vacío solo hasta que el residente
+-- entra por primera vez: el sistema lo obliga a crear su PIN antes de dejarlo pasar.
 insert into public.users (username, pin_hash, role, display_name, house_id)
 select case c.slug when 'manzana-3-a' then '3a-' else '3b-' end || h.number,
-       'scrypt$rEdm2Oko4JWi9ufv7ZPTww$JrLH117cLn9ksH6DFHs2oENXrkjljByment0i1yvGTs',
+       null,
        'resident',
        h.owner_name,
        h.id

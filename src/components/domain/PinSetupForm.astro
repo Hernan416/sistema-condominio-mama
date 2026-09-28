@@ -1,0 +1,66 @@
+---
+// Crear el PIN (primera vez) o poner uno nuevo (lo olvidó). Solo residentes.
+// Dos campos iguales para no equivocarse; teclado numérico en el teléfono.
+import Alert from '@/components/ui/Alert.astro';
+import Button from '@/components/ui/Button.astro';
+import Icon from '@/components/ui/Icon.astro';
+import TextField from '@/components/ui/TextField.astro';
+
+export type PinFormError = 'unknown' | 'mismatch' | 'format' | 'not_allowed' | 'server';
+
+interface Props {
+  mode: 'crear' | 'olvido';
+  username: string;
+  error?: PinFormError | null;
+}
+
+const { mode, username, error = null } = Astro.props;
+const messages: Record<PinFormError, string> = {
+  unknown: 'No encontramos ese usuario. Revíselo (ejemplo: 3b-12) o pregunte en la administración.',
+  mismatch: 'Los dos PIN no son iguales. Escríbalos otra vez.',
+  format: 'El PIN debe tener exactamente 4 números.',
+  not_allowed: 'Este usuario no puede cambiar su PIN desde aquí. Hable con la administración.',
+  server: 'No pudimos guardar el PIN. Intente de nuevo en unos minutos.',
+};
+const firstTime = mode === 'crear';
+---
+
+<form method="post" action="/api/auth/pin" class="flex flex-col gap-7" data-pin-form novalidate>
+  {error && <Alert tone="danger">{messages[error]}</Alert>}
+  <input type="hidden" name="mode" value={mode} />
+
+  {
+    firstTime ? (
+      <div class="rounded-[var(--radius-control)] bg-sunken px-5 py-4">
+        <p class="text-base text-ink-muted">Su usuario</p>
+        <p class="font-display text-3xl font-semibold">{username}</p>
+        <input type="hidden" name="username" value={username} />
+      </div>
+    ) : (
+      <TextField id="username" name="username" label="Su usuario" hint="Ejemplo: 3b-12" value={username} autocomplete="username" autocapitalize="none" spellcheck="false" maxlength={60} required />
+    )
+  }
+
+  <TextField id="pin" name="pin" type="password" label={firstTime ? 'Invente un PIN de 4 números' : 'PIN nuevo (4 números)'} hint="Algo fácil de recordar para usted, que otros no adivinen." inputmode="numeric" autocomplete="new-password" maxlength={4} required data-pin />
+  <TextField id="confirm" name="confirm" type="password" label="Escríbalo otra vez" inputmode="numeric" autocomplete="new-password" maxlength={4} required data-pin />
+
+  <label class="flex cursor-pointer items-center gap-3 text-lg">
+    <input type="checkbox" class="size-6 accent-[var(--color-accent)]" data-show-pin />
+    Mostrar los números
+  </label>
+
+  <Button type="submit" size="lg">
+    {firstTime ? 'Crear mi PIN y entrar' : 'Guardar PIN nuevo y entrar'}
+    <Icon name="arrow-right" size={24} />
+  </Button>
+
+  <a href="/" class="text-lg font-bold text-accent">Volver a Ingresar</a>
+</form>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>('[data-pin-form]')) {
+    const toggle = form.querySelector<HTMLInputElement>('[data-show-pin]');
+    const fields = [...form.querySelectorAll<HTMLInputElement>('[data-pin]')];
+    toggle?.addEventListener('change', () => fields.forEach((f) => (f.type = toggle.checked ? 'text' : 'password')));
+  }
+</script>

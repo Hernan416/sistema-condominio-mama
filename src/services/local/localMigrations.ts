@@ -1,6 +1,6 @@
 // Migraciones del archivo local que CONSERVAN los datos. La clave es la versión de origen.
 import { randomUUID } from 'node:crypto';
-import { DEMO_ADMIN, demoBillingSheet, demoCondominiumSettings, userRecord } from '@/services/local/localSeed';
+import { CONDOMINIUM_LAYOUT, DEMO_ADMIN, demoBillingSheet, demoCondominiumSettings, userRecord } from '@/services/local/localSeed';
 import { hashPin } from '@/services/auth/pinHasher';
 import type { LocalDatabase } from '@/services/local/localSchema';
 import { equalAliquots } from '@/utils/billingCalculator';
@@ -123,5 +123,49 @@ export const MIGRATIONS: Record<number, (db: Record<string, unknown>) => void> =
       delete h.locked_until;
     }
     db.users.push(userRecord({ username: DEMO_ADMIN.username, pin_hash: hashPin(DEMO_ADMIN.pin), role: 'admin', display_name: DEMO_ADMIN.name, house_id: null }));
+  },
+  // v11 → v12: los residentes empiezan sin PIN; cada uno crea el suyo al entrar la primera vez.
+  // La administradora conserva el suyo.
+  11: (raw) => {
+    const db = raw as unknown as LocalDatabase;
+    for (const u of db.users) if (u.role === 'resident') Object.assign(u, { pin_hash: null, failed_attempts: 0, locked_until: null });
+  },
+  // v12 → v13: cantidad real de casas (3-A: 33, 3-B: 38). Se agregan las que faltan, cada una
+  // con su usuario residente sin PIN; las existentes conservan todo. Las alícuotas de prueba
+  // se reparten en partes iguales para que sigan sumando 100 % (las reales llegan con la carga).
+  12: (raw) => {
+    const db = raw as unknown as LocalDatabase;
+    for (const layout of CONDOMINIUM_LAYOUT) {
+      const condo = db.condominiums.find((c) => c.slug === layout.slug);
+      if (!condo) continue;
+      const houses = () => db.houses.filter((h) => h.condominium_id === condo.id);
+      const existing = new Set(houses().map((h) => h.number.trim().toUpperCase()));
+      for (let n = 1; n <= layout.houses; n++) {
+        if (existing.has(String(n))) continue;
+        const id = randomUUID();
+        db.houses.push({
+          id,
+          condominium_id: condo.id,
+          number: String(n),
+          owner_name: `Propietario casa ${n}`,
+          owner_document: null,
+          owner_email: null,
+          aliquot: 0,
+          aliquot_category_id: null,
+          owner_phone: null,
+          occupancy: 'owner',
+          occupant_name: null,
+          occupant_phone: null,
+          notes: null,
+        });
+        const username = `${layout.prefix}-${n}`;
+        if (!db.users.some((u) => u.username === username)) {
+          db.users.push(userRecord({ username, pin_hash: null, role: 'resident', display_name: `Propietario casa ${n}`, house_id: id }));
+        }
+      }
+      const all = houses().sort((a, b) => a.number.localeCompare(b.number, 'es', { numeric: true }));
+      const aliquots = equalAliquots(all.length);
+      all.forEach((h, i) => Object.assign(h, { aliquot: aliquots[i], aliquot_category_id: null }));
+    }
   },
 };

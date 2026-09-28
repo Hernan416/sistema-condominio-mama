@@ -8,6 +8,7 @@ import ResidentPendingList from '@/components/domain/ResidentPendingList.astro';
 import ResidentHistory from '@/components/domain/ResidentHistory.astro';
 import Icon from '@/components/ui/Icon.astro';
 import Greeting from '@/components/ui/Greeting.astro';
+import Alert from '@/components/ui/Alert.astro';
 import { getAccountService, getAppName, getInvoiceService } from '@/services/container';
 import { toResidentDashboardView } from '@/adapters/residentDashboardAdapter';
 import { isoDateInCaracas } from '@/utils/dates';
@@ -49,6 +50,7 @@ const jump = [
   {
     view ? (
       <div class="flex flex-col gap-10">
+        {Astro.url.searchParams.get('pin') === 'listo' && <Alert tone="info">¡Listo! Su PIN quedó guardado. Úselo la próxima vez que entre.</Alert>}
         <div id="hoy" class="scroll-mt-4">
           <ResidentStatusCard status={view.status} todayRateLabel={view.todayRateLabel} receiptHref={view.preview ? '#recibo' : null} />
         </div>
@@ -81,8 +83,14 @@ const jump = [
             <div><dt class="text-base text-ink-muted">Casa</dt><dd class="font-bold">{view.houseNumber}</dd></div>
             <div><dt class="text-base text-ink-muted">Alícuota (su parte de los gastos)</dt><dd class="font-bold">{view.aliquotLabel}</dd></div>
             <div class="col-span-2"><dt class="text-base text-ink-muted">Propietario</dt><dd class="font-bold">{view.ownerName ?? '—'}</dd></div>
+            {view.username && <div class="col-span-2"><dt class="text-base text-ink-muted">Su usuario para entrar</dt><dd class="font-bold">{view.username}</dd></div>}
           </dl>
           <p class="mt-4 text-base text-ink-muted">¿Algún dato está mal? Avísele a la administración para corregirlo.</p>
+          {view.username && (
+            <a href={`/pin?modo=olvido&usuario=${encodeURIComponent(view.username)}`} class="mt-4 inline-flex min-h-12 items-center rounded-[var(--radius-control)] px-4 text-lg font-bold text-accent no-underline ring-1 ring-line hover:bg-sunken">
+              Cambiar mi PIN
+            </a>
+          )}
         </section>
         <!-- Espacio para que la barra inferior no tape el final (solo teléfono). -->
         <div class="h-20 sm:hidden" aria-hidden="true"></div>

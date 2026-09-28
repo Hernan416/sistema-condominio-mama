@@ -104,6 +104,8 @@ export interface UserRepository {
   findByUsername(username: string): Promise<UserCredentials | null>;
   /** Guarda el contador de intentos fallidos y el bloqueo temporal. */
   saveAttempts(userId: string, failedAttempts: number, lockedUntil: Date | null): Promise<void>;
+  /** Guarda un PIN nuevo (ya cifrado) y limpia intentos y bloqueo. */
+  setPin(userId: string, pinHash: string): Promise<void>;
 }
 
 export interface InvoiceDocumentData {
