@@ -1,9 +1,12 @@
 ---
-// Encabezado de un condominio: nombre, tasa del día y pestañas de gestión.
+// Encabezado de una pantalla del condominio: dónde estoy, para qué sirve y (si aplica)
+// en qué paso voy. Las secciones están en la barra lateral; en móvil se muestran aquí.
 import ExchangeRateBadge from '@/components/domain/ExchangeRateBadge.astro';
+import Icon from '@/components/ui/Icon.astro';
 import type { ExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { adminSections, monthlySteps, sectionOf, settingsTabs, type CondominiumTab } from '@/utils/adminSections';
 
-export type CondominiumTab = 'resumen' | 'facturas' | 'gastos' | 'casas' | 'cobranza' | 'alicuotas' | 'datos';
+export type { CondominiumTab };
 
 interface Props {
   name: string;
@@ -11,53 +14,109 @@ interface Props {
   city: string | null;
   active: CondominiumTab;
   rate: ExchangeRateView | null;
+  /** Para qué sirve esta pantalla, en una o dos frases sencillas. */
   description: string;
   /** Título alternativo (p. ej. "Casa 5" dentro de una ficha). */
   title?: string;
+  /** Paso 1 ya hecho (gastos del mes guardados): se marca con ✓ en los pasos. */
+  stepDone?: { gastos?: boolean; facturas?: boolean };
 }
 
-const { name, slug, city, active, rate, description, title } = Astro.props;
-
-const tabs: { id: CondominiumTab; label: string; href: string }[] = [
-  { id: 'resumen', label: 'Resumen', href: `/admin/${slug}` },
-  { id: 'facturas', label: 'Facturas del mes', href: `/admin/${slug}/facturas` },
-  { id: 'gastos', label: 'Relación de gastos', href: `/admin/${slug}/gastos` },
-  { id: 'casas', label: 'Casas y cuentas', href: `/admin/${slug}/casas` },
-  { id: 'cobranza', label: 'Cobranza', href: `/admin/${slug}/cobranza` },
-  { id: 'alicuotas', label: 'Alícuotas', href: `/admin/${slug}/alicuotas` },
-  { id: 'datos', label: 'Datos del recibo', href: `/admin/${slug}/datos` },
-];
+const { name, slug, city, active, rate, description, title, stepDone = {} } = Astro.props;
+const sections = adminSections(slug);
+const current = sections.find((s) => s.id === sectionOf(active))!;
+const steps = current.id === 'recibos' ? monthlySteps(slug) : null;
+const subTabs = current.id === 'ajustes' ? settingsTabs(slug) : null;
+const heading = title ?? (current.id === 'inicio' ? name : current.id === 'recibos' ? 'Recibos del mes' : current.label);
 ---
 
-<header class="mb-8 flex flex-col gap-6">
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <h1 class="font-display text-4xl font-semibold sm:text-5xl">{title ?? name}</h1>
-      <p class="mt-3 max-w-[70ch] text-lg text-ink-muted">
-        {city ? `${city} · ` : ''}{description}
-      </p>
-    </div>
-    <ExchangeRateBadge rate={rate} />
-  </div>
-
-  <nav aria-label="Secciones del condominio" class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-    <ul class="flex w-max gap-1 rounded-2xl bg-sunken p-1 ring-1 ring-inset ring-line">
+<header class="mb-8 flex flex-col gap-5">
+  <!-- Secciones en móvil (en escritorio están en la barra lateral). -->
+  <nav aria-label="Secciones del condominio" class="-mx-4 relative overflow-x-auto px-4 lg:hidden">
+    <ul class="flex w-max gap-1.5">
       {
-        tabs.map((t) => (
+        sections.map((s) => (
           <li>
             <a
-              href={t.href}
-              aria-current={t.id === active ? 'page' : undefined}
+              href={s.href}
+              aria-current={s.id === current.id ? 'page' : undefined}
               class:list={[
-                'inline-flex min-h-10 items-center whitespace-nowrap rounded-xl px-3.5 text-[0.95rem] font-bold no-underline transition-colors',
-                t.id === active ? 'bg-surface text-ink shadow-[var(--shadow-raised)] ring-1 ring-line' : 'text-ink-muted hover:text-ink',
+                'inline-flex min-h-12 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 text-base font-bold no-underline',
+                s.id === current.id ? 'bg-accent text-on-accent' : 'bg-surface text-ink ring-1 ring-line',
               ]}
             >
-              {t.label}
+              <Icon name={s.icon} size={18} />
+              {s.label}
             </a>
           </li>
         ))
       }
     </ul>
   </nav>
+
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-base font-bold text-accent">
+        {name}{city && current.id === 'inicio' ? ` · ${city}` : ''}
+      </p>
+      <h1 class="font-display mt-1 text-4xl font-semibold sm:text-5xl">{Astro.slots.has('title') ? <slot name="title" /> : heading}</h1>
+      <p class="mt-3 max-w-[65ch] text-lg text-ink-muted">{description}</p>
+    </div>
+    <ExchangeRateBadge rate={rate} />
+  </div>
+
+  {
+    steps && (
+      <ol class="grid gap-3 sm:grid-cols-2" aria-label="Pasos para hacer los recibos del mes">
+        {steps.map((st) => {
+          const on = st.tab === active;
+          const done = stepDone[st.tab] === true;
+          return (
+            <li>
+              <a
+                href={st.href}
+                aria-current={on ? 'step' : undefined}
+                class:list={[
+                  'flex min-h-16 items-center gap-4 rounded-[var(--radius-card)] px-5 py-3 no-underline ring-1 transition-colors',
+                  on ? 'bg-accent-tint ring-2 ring-accent' : 'bg-surface ring-line hover:ring-line-strong',
+                ]}
+              >
+                <span
+                  class:list={[
+                    'font-display inline-flex size-10 shrink-0 items-center justify-center rounded-full text-xl font-semibold',
+                    done ? 'bg-accent text-on-accent' : on ? 'bg-accent text-on-accent' : 'bg-sunken text-ink',
+                  ]}
+                >
+                  {done ? <Icon name="check" size={20} strokeWidth={3} /> : st.number}
+                </span>
+                <span class="flex flex-col">
+                  <span class="text-sm font-bold text-ink-muted">Paso {st.number} de 2{done ? ' · listo' : ''}</span>
+                  <span class="text-lg font-bold text-ink">{st.label}</span>
+                </span>
+              </a>
+            </li>
+          );
+        })}
+      </ol>
+    )
+  }
+
+  {
+    subTabs && (
+      <nav aria-label="Ajustes" class="flex flex-wrap gap-2">
+        {subTabs.map((t) => (
+          <a
+            href={t.href}
+            aria-current={t.tab === active ? 'page' : undefined}
+            class:list={[
+              'inline-flex min-h-12 items-center rounded-xl px-4 text-base font-bold no-underline ring-1',
+              t.tab === active ? 'bg-accent-tint text-accent-strong ring-2 ring-accent' : 'bg-surface text-ink ring-line hover:ring-line-strong',
+            ]}
+          >
+            {t.label}
+          </a>
+        ))}
+      </nav>
+    )
+  }
 </header>

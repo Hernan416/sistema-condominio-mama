@@ -10,9 +10,9 @@ const key = (p: BillingPeriod) => p.year * 100 + p.month;
 export class LocalInvoiceRepository implements InvoiceRepository {
   constructor(private readonly store: LocalJsonStore) {}
 
-  async findByStoredFileId(fileId: string): Promise<Invoice | null> {
+  async findById(id: string): Promise<Invoice | null> {
     const db = await this.store.read();
-    const row = db.invoices.find((i) => i.drive_file_id === fileId);
+    const row = db.invoices.find((i) => i.id === id);
     return row ? toDomain(db, row) : null;
   }
 

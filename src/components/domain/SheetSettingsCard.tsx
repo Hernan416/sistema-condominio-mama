@@ -13,7 +13,7 @@ interface Props {
 export function SheetSettingsCard({ reserveFundPercent, dueDate, generalNote, disabled, onReserveChange, onDueDateChange, onGeneralNoteChange }: Props) {
   return (
     <section aria-labelledby="sheet-settings" className="rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
-      <h2 id="sheet-settings" className="font-display mb-4 text-2xl font-semibold">Parámetros del mes</h2>
+      <h2 id="sheet-settings" className="font-display mb-4 text-2xl font-semibold">Datos de este recibo</h2>
       <fieldset disabled={disabled} className="grid gap-4 md:grid-cols-[10rem_12rem_minmax(0,1fr)]">
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-bold text-ink-muted">Fondo de reserva (%)</span>

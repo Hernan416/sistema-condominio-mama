@@ -7,7 +7,7 @@ const SECTION_TITLES: Record<InvoiceLineKind, string> = {
   reserve: 'Fondo de reserva',
   income: 'Ingresos (se descuentan)',
   extraordinary: 'Cuotas extraordinarias',
-  unit: 'Cargos y abonos de la unidad',
+  unit: 'Cargos y abonos de la casa',
   interest: 'Intereses de mora',
 };
 const ORDER: InvoiceLineKind[] = ['ordinary', 'reserve', 'income', 'extraordinary', 'unit', 'interest'];

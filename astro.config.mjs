@@ -44,7 +44,7 @@ const revalidateDevDeps = {
 
 export default defineConfig({
   output: 'server',
-  // 60s: margen para subir a Drive una factura por invocación (máximo del plan Hobby).
+  // 60s: margen para dibujar los PDF de los recibos (máximo del plan Hobby).
   adapter: vercel({ maxDuration: 60 }),
   integrations: [react(), isolateViteCache],
   vite: {
@@ -66,11 +66,10 @@ export default defineConfig({
     schema: {
       // Selectores de proveedor: el único cambio necesario para pasar a la nube.
       DATA_PROVIDER: envField.enum({ context: 'server', access: 'secret', values: ['local', 'supabase'], default: 'local' }),
-      STORAGE_PROVIDER: envField.enum({ context: 'server', access: 'secret', values: ['local', 'google'], default: 'local' }),
 
       SESSION_SECRET: envField.string({ context: 'server', access: 'secret', optional: true }),
       // Marca del producto (el nombre de cada condominio vive en la base de datos).
-      APP_NAME: envField.string({ context: 'server', access: 'secret', default: 'Portal Residencial' }),
+      APP_NAME: envField.string({ context: 'server', access: 'secret', default: 'Portal MAGO Condominios' }),
 
       // Tasa USD → Bs. (dolarapi = BCV oficial vía ve.dolarapi.com; fixed = valor fijo sin internet)
       EXCHANGE_RATE_PROVIDER: envField.enum({ context: 'server', access: 'secret', values: ['dolarapi', 'fixed'], default: 'dolarapi' }),
@@ -82,6 +81,7 @@ export default defineConfig({
       // Modo local
       LOCAL_DATA_DIR: envField.string({ context: 'server', access: 'secret', default: '.local-data' }),
       LOCAL_ADMIN_EMAIL: envField.string({ context: 'server', access: 'secret', default: 'admin@local.test' }),
+      LOCAL_ADMIN_NAME: envField.string({ context: 'server', access: 'secret', default: 'María González' }),
       LOCAL_ADMIN_PASSWORD: envField.string({ context: 'server', access: 'secret', default: 'admin1234' }),
 
       // Supabase (DATA_PROVIDER=supabase)
@@ -89,12 +89,6 @@ export default defineConfig({
       SUPABASE_ANON_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       SUPABASE_SERVICE_ROLE_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
 
-      // Google Drive (STORAGE_PROVIDER=google)
-      GOOGLE_CLIENT_ID: envField.string({ context: 'server', access: 'secret', optional: true }),
-      GOOGLE_CLIENT_SECRET: envField.string({ context: 'server', access: 'secret', optional: true }),
-      GOOGLE_REFRESH_TOKEN: envField.string({ context: 'server', access: 'secret', optional: true }),
-      GOOGLE_DRIVE_ROOT_FOLDER_ID: envField.string({ context: 'server', access: 'secret', optional: true }),
-      GOOGLE_DRIVE_PUBLIC_LINKS: envField.boolean({ context: 'server', access: 'secret', default: true }),
     },
   },
 });

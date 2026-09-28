@@ -8,10 +8,12 @@ interface Props {
   onSave: () => void;
   onDiscard?: () => void;
   saveLabel?: string;
+  /** Siguiente paso, se ofrece cuando todo está guardado. */
+  next?: { href: string; label: string } | null;
 }
 
 /** Barra fija inferior: estado de los cambios y botón Guardar. */
-export function SaveBar({ dirty, saving, error, savedMessage, onSave, onDiscard, saveLabel = 'Guardar cambios' }: Props) {
+export function SaveBar({ dirty, saving, error, savedMessage, onSave, onDiscard, saveLabel = 'Guardar cambios', next = null }: Props) {
   return (
     <div className="sticky bottom-4 z-10">
       <div
@@ -29,9 +31,15 @@ export function SaveBar({ dirty, saving, error, savedMessage, onSave, onDiscard,
               Descartar
             </ActionButton>
           )}
-          <ActionButton busy={saving} disabled={!dirty} onClick={onSave}>
-            {saving ? 'Guardando…' : saveLabel}
-          </ActionButton>
+          {!dirty && !saving && next ? (
+            <a href={next.href} className="inline-flex min-h-12 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-5 text-base font-bold text-on-accent no-underline shadow-[var(--shadow-button)] hover:bg-accent-strong">
+              {next.label} →
+            </a>
+          ) : (
+            <ActionButton busy={saving} disabled={!dirty} onClick={onSave}>
+              {saving ? 'Guardando…' : saveLabel}
+            </ActionButton>
+          )}
         </div>
       </div>
     </div>

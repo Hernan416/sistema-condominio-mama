@@ -86,11 +86,9 @@ export interface Invoice extends BillingPeriod {
   houseNumber: string | null;
   /** Monto en dólares (USD): la moneda en que se fija la cuota. */
   amount: number;
-  /** Tasa usada al generar el PDF (referencia en Bs. impresa en la factura). */
+  /** Tasa BCV del día de emisión (la referencia en Bs. del recibo; queda fija). */
   exchangeRate: number | null;
   exchangeRateDate: Date | null;
-  driveFileId: string | null;
-  driveFileUrl: string | null;
   status: InvoiceStatus;
   generatedAt: Date | null;
   paidAt: Date | null;
@@ -122,6 +120,8 @@ export interface ResidentSession {
 export interface AdminSession {
   userId: string;
   email: string | null;
+  /** Nombre para saludar ("María González"); null si no se conoce. */
+  name: string | null;
 }
 
 export type PinVerificationResult =

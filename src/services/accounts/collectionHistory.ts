@@ -16,6 +16,8 @@ export interface HistoryFilters {
 export interface ChargeHistoryRow {
   house: House;
   charge: AccountCharge;
+  /** Fecha del último pago que se aplicó a este cargo (null si nadie le ha abonado). */
+  lastPaidOn: string | null;
 }
 
 export interface PaymentHistoryRow {
@@ -27,15 +29,18 @@ export function chargeHistory(accounts: HouseAccount[], f: HistoryFilters) {
   const rows: ChargeHistoryRow[] = [];
   for (const a of accounts) {
     if (f.houseId && a.house.id !== f.houseId) continue;
+    const lastPaid = lastPaymentByCharge(a);
     for (const c of a.charges) {
       if (f.year && !c.date.startsWith(f.year)) continue;
       if (f.status === 'pending' && c.outstanding <= 0) continue;
       if (f.status === 'partial' && c.status !== 'partial') continue;
       if (f.status === 'paid' && c.status !== 'paid') continue;
-      rows.push({ house: a.house, charge: c });
+      rows.push({ house: a.house, charge: c, lastPaidOn: lastPaid.get(c.id) ?? null });
     }
   }
-  rows.sort((x, y) => y.charge.date.localeCompare(x.charge.date) || x.house.number.localeCompare(y.house.number, 'es', { numeric: true }));
+  // Lo que tuvo movimiento más reciente (un abono de hoy) va primero.
+  const activity = (r: ChargeHistoryRow) => (r.lastPaidOn && r.lastPaidOn > r.charge.date ? r.lastPaidOn : r.charge.date);
+  rows.sort((x, y) => activity(y).localeCompare(activity(x)) || y.charge.date.localeCompare(x.charge.date) || x.house.number.localeCompare(y.house.number, 'es', { numeric: true }));
   return {
     rows,
     totals: {
@@ -66,4 +71,11 @@ export function yearsWithActivity(accounts: HouseAccount[]): string[] {
     for (const p of a.payments) years.add(p.date.slice(0, 4));
   }
   return [...years].sort().reverse();
+}
+
+/** Último pago aplicado a cada cargo (los pagos vienen del más reciente al más antiguo). */
+function lastPaymentByCharge(account: HouseAccount): Map<string, string> {
+  const last = new Map<string, string>();
+  for (const p of account.payments) for (const a of p.appliedTo) if (!last.has(a.chargeId)) last.set(a.chargeId, p.date);
+  return last;
 }

@@ -88,20 +88,19 @@ create table if not exists public.invoices (
   year            smallint not null check (year between 2000 and 2100),
   -- La cuota se fija en dólares (USD). La referencia en bolívares se calcula con la tasa BCV.
   amount          numeric(12, 2) not null check (amount >= 0),
-  -- Tasa BCV (Bs. por USD) usada al generar el PDF, y fecha en que el BCV la publicó.
+  -- Tasa BCV (Bs. por USD) del día de emisión, y fecha en que el BCV la publicó.
   exchange_rate       numeric(14, 4) check (exchange_rate is null or exchange_rate > 0),
   exchange_rate_date  date,
-  drive_file_id   text,
-  drive_file_url  text,
   status          public.invoice_status not null default 'pending',
   generated_at    timestamptz,
   paid_at         timestamptz,
   -- Desglose con el que se emitió el recibo (líneas, subtotales, deuda, mora). Inmutable tras emitir.
+  -- No se guardan archivos: el PDF se dibuja al momento a partir de esta fila.
   detail          jsonb,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
   constraint invoices_one_per_house_period unique (house_id, year, month),
-  constraint invoices_generated_has_file check (status = 'pending' or drive_file_id is not null)
+  constraint invoices_generated_has_detail check (status = 'pending' or detail is not null)
 );
 
 create index if not exists invoices_period_idx on public.invoices (year, month);
@@ -185,7 +184,6 @@ alter table public.houses add column if not exists occupancy text not null defau
 alter table public.houses add column if not exists occupant_name text;
 alter table public.houses add column if not exists occupant_phone text;
 alter table public.houses add column if not exists notes text;
-
 -- ─── updated_at automático ──────────────────────────────────────────────────
 create or replace function public.touch_updated_at()
 returns trigger language plpgsql as $$

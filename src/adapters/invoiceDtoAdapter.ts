@@ -8,7 +8,6 @@ export function toInvoiceDto(invoice: Invoice): InvoiceDto {
     id: invoice.id,
     amount: invoice.amount,
     status: invoice.status,
-    driveFileUrl: invoice.driveFileUrl,
     generatedAt: invoice.generatedAt?.toISOString() ?? null,
     paidAt: invoice.paidAt?.toISOString() ?? null,
   };

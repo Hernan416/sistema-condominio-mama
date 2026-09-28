@@ -28,14 +28,14 @@ export default function InvoiceGenerator({ condominiumSlug, initialPeriod, initi
           { label: 'Emitidas', value: `${inv.stats.issued} de ${inv.stats.units}`, tone: inv.stats.pending > 0 ? 'warning' : 'accent', hint: inv.stats.pending > 0 ? `${inv.stats.pending} por emitir o actualizar` : 'Todo al día' },
           { label: 'Pagadas', value: inv.stats.paid, tone: 'accent' },
           { label: 'Facturado del mes', value: formatUsd(inv.stats.monthTotal), hint: ves(inv.stats.monthTotal) },
-          { label: 'Deuda de meses anteriores', value: formatUsd(inv.stats.previousDebt), tone: inv.stats.previousDebt > 0 ? 'warning' : 'default', hint: `${inv.stats.delinquentUnits} unidades con deuda` },
+          { label: 'Deuda de meses anteriores', value: formatUsd(inv.stats.previousDebt), tone: inv.stats.previousDebt > 0 ? 'warning' : 'default', hint: `${inv.stats.delinquentUnits} casas con deuda` },
         ]}
       />
 
       {!inv.sheetSaved && (
         <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] bg-warning-tint px-5 py-4 text-warning ring-1 ring-inset ring-warning/25">
-          <p className="font-bold">La relación de gastos de este mes aún no se ha guardado. Los montos mostrados son una propuesta copiada del mes anterior.</p>
-          <a href={`/admin/${condominiumSlug}/gastos`} className="font-bold underline">Revisar y guardar gastos</a>
+          <p className="text-lg font-bold">Primero haga el paso 1: anote y guarde los gastos de este mes. Los montos de abajo son solo una propuesta.</p>
+          <a href={`/admin/${condominiumSlug}/gastos?mes=${inv.period.month}&anio=${inv.period.year}`} className="inline-flex min-h-12 items-center rounded-[var(--radius-control)] bg-accent px-5 font-bold text-on-accent no-underline">Ir al paso 1: gastos</a>
         </div>
       )}
 

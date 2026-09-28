@@ -5,13 +5,13 @@ import type { BillingPeriod, Invoice } from '@/types/domain';
 import type { InvoiceRepository } from '@/services/contracts';
 
 const INVOICE_COLUMNS =
-  'id, house_id, month, year, amount, exchange_rate, exchange_rate_date, drive_file_id, drive_file_url, status, generated_at, paid_at, detail, houses(number)';
+  'id, house_id, month, year, amount, exchange_rate, exchange_rate_date, status, generated_at, paid_at, detail, houses(number)';
 
 export class SupabaseInvoiceRepository implements InvoiceRepository {
   constructor(private readonly db: SupabaseClient) {}
 
-  async findByStoredFileId(fileId: string): Promise<Invoice | null> {
-    const { data, error } = await this.db.from('invoices').select(INVOICE_COLUMNS).eq('drive_file_id', fileId).limit(1).maybeSingle<InvoiceRow>();
+  async findById(id: string): Promise<Invoice | null> {
+    const { data, error } = await this.db.from('invoices').select(INVOICE_COLUMNS).eq('id', id).maybeSingle<InvoiceRow>();
     if (error) throw new Error(`No se pudo leer la factura: ${error.message}`);
     return data ? supabaseInvoiceToDomainInvoice(data) : null;
   }

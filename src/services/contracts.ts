@@ -1,5 +1,5 @@
 // Contratos (Dependency Inversion). La lógica de negocio depende de estas interfaces,
-// nunca de Supabase, Google Drive, el disco local o pdf-lib directamente.
+// nunca de Supabase, el disco local o pdf-lib directamente.
 import type {
   AdminSession,
   BillingPeriod,
@@ -55,9 +55,9 @@ export interface BillingSheetRepository {
 }
 
 export interface InvoiceRepository {
-  findByStoredFileId(fileId: string): Promise<Invoice | null>;
+  findById(id: string): Promise<Invoice | null>;
   findByHouseAndPeriod(houseId: string, period: BillingPeriod): Promise<Invoice | null>;
-  /** Factura más reciente con PDF disponible (la "factura del mes" del residente). */
+  /** Recibo emitido más reciente (la "factura del mes" del residente). */
   findLatestAvailableForHouse(houseId: string): Promise<Invoice | null>;
   listByCondominiumAndPeriod(condominiumId: string, period: BillingPeriod): Promise<Invoice[]>;
   /** Todos los recibos emitidos del condominio (cualquier periodo): alimentan el libro de cuentas. */
@@ -110,26 +110,6 @@ export interface PinVerifier {
   verify(username: string, pin: string): Promise<PinVerificationResult>;
 }
 
-export interface StoredFile {
-  fileId: string;
-  /** Enlace para abrir el archivo (Drive o endpoint local). */
-  url: string;
-}
-
-/** Dónde queda la factura: Raíz → Condominio → Año → Mes. */
-export interface InvoiceFileTarget {
-  condominiumName: string;
-  houseNumber: string;
-  month: number;
-  year: number;
-}
-
-/** Almacenamiento de facturas (GoogleDriveFacade o LocalFileStorage). */
-export interface InvoiceStorage {
-  uploadInvoice(pdf: Uint8Array, target: InvoiceFileTarget): Promise<StoredFile>;
-  downloadInvoice(fileId: string): Promise<Uint8Array>;
-}
-
 export interface InvoiceDocumentData {
   condominiumName: string;
   houseNumber: string;
@@ -146,7 +126,7 @@ export interface InvoiceDocumentData {
   issuedAt: Date;
 }
 
-/** Generación de PDF (implementado por PdfInvoiceFacade). */
+/** Generación de PDF al momento, sin guardar archivos (implementado por PdfInvoiceFacade). */
 export interface InvoicePdfRenderer {
   render(data: InvoiceDocumentData): Promise<Uint8Array>;
 }

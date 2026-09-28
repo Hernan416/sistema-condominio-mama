@@ -3,8 +3,8 @@ import { getInvoiceService } from '@/services/container';
 import { attachmentHeader } from '@/utils/http';
 
 /**
- * Descarga directa al dispositivo del residente. El servidor trae el PDF desde Drive
- * y lo entrega con Content-Disposition: attachment (sin abrir Drive ni pedir cuenta Google).
+ * Descarga directa al dispositivo del residente: el servidor dibuja el PDF de su último
+ * recibo a partir de los datos guardados y lo entrega con Content-Disposition: attachment.
  */
 export const GET: APIRoute = async ({ locals, redirect }) => {
   const resident = locals.resident!;

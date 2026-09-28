@@ -1,0 +1,26 @@
+---
+// Saludo según la hora de Caracas ("Buenos días / Buenas tardes / Buenas noches, María González").
+// Se calcula en el servidor y se actualiza solo en el navegador si la página queda abierta.
+import { greetingFor } from '@/utils/greeting';
+
+interface Props {
+  name: string | null;
+  class?: string;
+}
+
+const { name, class: className } = Astro.props;
+---
+
+<span class={className} data-greeting data-name={name ?? ''}>{greetingFor(new Date())}{name ? `, ${name}` : ''}</span>
+
+<script>
+  import { greetingFor } from '@/utils/greeting';
+  const update = () => {
+    for (const el of document.querySelectorAll<HTMLElement>('[data-greeting]')) {
+      const name = el.dataset.name;
+      el.textContent = `${greetingFor(new Date())}${name ? `, ${name}` : ''}`;
+    }
+  };
+  update();
+  setInterval(update, 60_000);
+</script>

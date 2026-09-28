@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import CondominiumOverviewList from '@/components/domain/CondominiumOverviewList.astro';
+import Greeting from '@/components/ui/Greeting.astro';
 import ExchangeRateBadge from '@/components/domain/ExchangeRateBadge.astro';
 import { getAppName, getCondominiumService, getExchangeRates } from '@/services/container';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
@@ -17,13 +18,14 @@ const condominiums = overview.map((o) => o.condominium);
 const pending = overview.reduce((sum, o) => sum + o.pendingCount, 0);
 ---
 
-<AdminLayout title="Resumen" appName={getAppName()} adminEmail={admin.email} condominiums={condominiums}>
+<AdminLayout title="Sus condominios" appName={getAppName()} adminEmail={admin.email} condominiums={condominiums}>
   <header class="mb-10 flex flex-wrap items-end justify-between gap-4">
     <div>
-      <h1 class="font-display text-4xl font-semibold sm:text-5xl">Resumen de {formatPeriod(period.month, period.year).toLowerCase()}</h1>
+      <p class="text-xl font-bold text-accent">¡Bienvenida{admin.name ? `, ${admin.name}` : ''}!</p>
+      <h1 class="font-display mt-1 text-4xl font-semibold sm:text-5xl"><Greeting name={null} />. Estos son sus condominios</h1>
       <p class="mt-3 text-lg text-ink-muted">
-        {overview.length} {overview.length === 1 ? 'condominio' : 'condominios'} ·{' '}
-        {pending === 0 ? 'todas las facturas del mes están listas' : `${pending} facturas por generar`}
+        Toque el condominio con el que quiere trabajar. {formatPeriod(period.month, period.year)}:{' '}
+        {pending === 0 ? 'todos los recibos del mes están listos.' : `faltan ${pending} recibos por emitir.`}
       </p>
     </div>
     <ExchangeRateBadge rate={toExchangeRateView(rate)} />

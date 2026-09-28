@@ -45,12 +45,12 @@ export function UnitChargesTable({ units, expenses, charges, notes, preview, sel
   return (
     <section aria-labelledby="units-title" className="rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
       <div className="border-b border-line p-5">
-        <h2 id="units-title" className="font-display text-2xl font-semibold">Recibo de cada unidad</h2>
+        <h2 id="units-title" className="font-display text-2xl font-semibold">Casa por casa</h2>
         <p className="mt-1 max-w-[75ch] text-sm text-ink-muted">
           Abra una casa para personalizar su recibo: cambiar cómo paga un concepto del condominio (monto fijo o no aplica), agregar cargos o abonos propios y ver su recibo completo.
         </p>
       </div>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[900px] text-base">
           <thead className="bg-canvas/60">
             <tr className="border-b border-line">
@@ -64,7 +64,7 @@ export function UnitChargesTable({ units, expenses, charges, notes, preview, sel
                   onChange={() => units.forEach((u) => (allSelected ? selected.has(u.id) : !selected.has(u.id)) && onToggle(u.id))}
                 />
               </th>
-              <th scope="col" className={th}>Unidad</th>
+              <th scope="col" className={th}>Casa</th>
               <th scope="col" className={th}>Personalizado</th>
               <th scope="col" className={th}>Nota en el recibo</th>
               <th scope="col" className={`${th} text-right`}>Total del mes</th>

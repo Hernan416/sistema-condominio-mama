@@ -20,7 +20,7 @@ export class SupabaseAdminAuthenticator implements AdminAuthenticator {
       await this.auth.auth.signOut();
       return null;
     }
-    return { userId: data.user.id, email: data.user.email ?? null };
+    return { userId: data.user.id, email: data.user.email ?? null, name: displayName(data.user.user_metadata) };
   }
 
   /** Valida el JWT contra Supabase (getUser, no getSession) y confirma que sea admin. */
@@ -28,7 +28,7 @@ export class SupabaseAdminAuthenticator implements AdminAuthenticator {
     const { data, error } = await this.auth.auth.getUser();
     if (error || !data.user) return null;
     if (!(await this.isAdmin(data.user.id))) return null;
-    return { userId: data.user.id, email: data.user.email ?? null };
+    return { userId: data.user.id, email: data.user.email ?? null, name: displayName(data.user.user_metadata) };
   }
 
   async signOut(): Promise<void> {
@@ -43,4 +43,10 @@ export class SupabaseAdminAuthenticator implements AdminAuthenticator {
       .eq('user_id', userId);
     return !error && (count ?? 0) > 0;
   }
+}
+
+/** Nombre guardado en Authentication → Users → user_metadata (full_name o name). */
+function displayName(meta: Record<string, unknown> | undefined): string | null {
+  const v = meta?.full_name ?? meta?.name;
+  return typeof v === 'string' && v.trim() ? v.trim() : null;
 }

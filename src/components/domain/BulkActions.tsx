@@ -16,11 +16,11 @@ export function BulkActions({ periodSlot, pendingCount, progress, disabled, onGe
   const finished = !progress.running && progress.total > 0;
 
   return (
-    <section aria-label="Acciones para todas las unidades" className="flex flex-col gap-5 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+    <section aria-label="Acciones para todas las casas" className="flex flex-col gap-5 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
       <div className="flex flex-wrap items-end justify-between gap-4">
         {periodSlot}
         <ActionButton busy={progress.running} disabled={disabled || pendingCount === 0} onClick={onGenerateAll}>
-          {progress.running ? 'Emitiendo recibos…' : pendingCount === 0 ? 'Todo emitido' : `Emitir pendientes (${pendingCount})`}
+          {progress.running ? 'Emitiendo recibos…' : pendingCount === 0 ? 'Todo emitido' : `Emitir los recibos que faltan (${pendingCount})`}
         </ActionButton>
       </div>
 

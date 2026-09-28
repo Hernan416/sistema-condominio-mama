@@ -1,124 +1,245 @@
 ---
+// Inicio del condominio: primero las TAREAS (qué quiere hacer), luego un "este mes" con lo
+// que falta y, al final, los números. Los gráficos y detalles quedan plegados (divulgación
+// progresiva): están, pero no compiten con lo importante.
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
 import TrendChart from '@/components/domain/TrendChart.astro';
 import AgingBars from '@/components/domain/AgingBars.astro';
 import SummaryStrip from '@/components/ui/SummaryStrip.astro';
+import TaskCard from '@/components/ui/TaskCard.astro';
+import Icon from '@/components/ui/Icon.astro';
+import Greeting from '@/components/ui/Greeting.astro';
 import FormSelect from '@/components/ui/FormSelect.astro';
 import Button from '@/components/ui/Button.astro';
-import { getAppName, getMetricsService } from '@/services/container';
+import { getAppName, getBillingService, getMetricsService } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
-import { allMonths, currentPeriod, formatPeriod } from '@/utils/months';
+import { allMonths, currentPeriod, formatPeriod, monthName } from '@/utils/months';
 import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
 import { debtAgeLabel } from '@/utils/ledger';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
 const { admin, condominium, condominiums, rate } = page;
+const slug = condominium.slug;
 
-// Periodo elegido (por defecto, el mes actual).
+// Periodo de los números (por defecto, el mes actual). "Este mes" siempre es el actual.
 const now = currentPeriod();
 const qMonth = Number(Astro.url.searchParams.get('mes'));
 const qYear = Number(Astro.url.searchParams.get('anio'));
-const period = qMonth >= 1 && qMonth <= 12 && qYear >= 2000 && qYear <= 2100 ? { month: qMonth, year: qYear } : now;
+const pickedPeriod = qMonth >= 1 && qMonth <= 12 && qYear >= 2000 && qYear <= 2100;
+const period = pickedPeriod ? { month: qMonth, year: qYear } : now;
 
 const today = isoDateInCaracas(new Date());
-const m = await getMetricsService().forCondominium(condominium, period, today);
+const [m, thisMonth, { origin }] = await Promise.all([
+  getMetricsService().forCondominium(condominium, period, today),
+  pickedPeriod ? getMetricsService().forCondominium(condominium, now, today) : null,
+  getBillingService().getSheet(condominium, now),
+]);
+const cur = thisMonth ?? m;
+const monthLabel = monthName(now.month).toLowerCase();
+
+// Estado de "Recibos del mes".
+const sheetSaved = origin === 'saved';
+const issued = cur.period.issuedCount;
+const units = cur.period.unitCount;
+const receiptsStatus = !sheetSaved
+  ? { text: 'Falta: anotar los gastos', tone: 'warning' as const, href: `/admin/${slug}/gastos` }
+  : issued < units
+    ? { text: `Faltan ${units - issued} recibos`, tone: 'warning' as const, href: `/admin/${slug}/facturas` }
+    : { text: 'Listo', tone: 'done' as const, href: `/admin/${slug}/facturas` };
+
 const ves = (usd: number) => (rate ? formatVes(usdToVes(usd, rate.usdToVes)) : undefined);
 const pct = (v: number | null) => (v === null ? '—' : `${new Intl.NumberFormat('es-VE', { maximumFractionDigits: 0 }).format(v * 100)} %`);
 const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
+const debtors = cur.receivables.housesWithDebt;
+
+const checklist = [
+  { done: sheetSaved, label: `Anotar los gastos de ${monthLabel}`, detail: sheetSaved ? 'Guardados' : 'Todavía no se han guardado', href: `/admin/${slug}/gastos`, action: sheetSaved ? 'Ver o cambiar' : 'Anotar gastos' },
+  { done: sheetSaved && issued >= units, label: 'Emitir los recibos', detail: `${issued} de ${units} recibos listos`, href: `/admin/${slug}/facturas`, action: issued >= units ? 'Ver recibos' : 'Emitir recibos' },
+  { done: debtors === 0, label: 'Cobrar', detail: debtors === 0 ? 'Todas las casas están al día' : `${debtors} ${debtors === 1 ? 'casa debe' : 'casas deben'} ${formatUsd(cur.receivables.outstanding)}`, href: `/admin/${slug}/pagos/nuevo`, action: 'Anotar un pago' },
+];
 ---
 
-<AdminLayout title={`Resumen · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+<AdminLayout title={`Inicio · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="resumen">
   <CondominiumHeader
     name={condominium.name}
-    slug={condominium.slug}
+    slug={slug}
     city={condominium.city}
     active="resumen"
     rate={toExchangeRateView(rate)}
-    description="Consolidado del condominio: lo facturado, lo cobrado, los gastos, el saldo en caja y quién debe."
-  />
+    description="Elija lo que quiere hacer. Más abajo verá lo que falta este mes y los números del condominio."
+  >
+    <Greeting slot="title" name={admin.name} />
+  </CondominiumHeader>
 
-  <div class="flex flex-col gap-6">
-    <form method="get" class="flex flex-wrap items-end gap-3" aria-label="Periodo">
-      <FormSelect id="r-mes" name="mes" label="Mes" value={String(period.month)} options={allMonths().map((x) => ({ value: String(x.value), label: x.label }))} />
-      <FormSelect id="r-anio" name="anio" label="Año" value={String(period.year)} options={years.map((y) => ({ value: String(y), label: String(y) }))} />
-      <Button type="submit" size="md" variant="secondary">Ver periodo</Button>
-    </form>
+  <div class="flex flex-col gap-10">
+    <section aria-labelledby="tasks-title">
+      <h2 id="tasks-title" class="font-display mb-4 text-3xl font-semibold">¿Qué desea hacer?</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <TaskCard
+          primary
+          href={`/admin/${slug}/pagos/nuevo`}
+          icon="cash"
+          title="Anotar un pago"
+          description="Cuando un vecino le paga o hace un abono (en dólares o en bolívares)."
+        />
+        <TaskCard
+          href={receiptsStatus.href}
+          icon="receipt"
+          title={`Hacer los recibos de ${monthLabel}`}
+          description="En dos pasos: anote los gastos del mes y luego emita los recibos de todas las casas."
+          status={receiptsStatus.text}
+          statusTone={receiptsStatus.tone}
+        />
+        <TaskCard
+          href={`/admin/${slug}/cobranza?estado=pending`}
+          icon="alert"
+          title="Ver quién debe"
+          description="La lista de recibos y deudas que faltan por pagar."
+          status={debtors === 0 ? 'Nadie debe' : `${debtors} ${debtors === 1 ? 'casa' : 'casas'}`}
+          statusTone={debtors === 0 ? 'done' : 'warning'}
+        />
+        <TaskCard
+          href={`/admin/${slug}/casas`}
+          icon="houses"
+          title="Ver una casa"
+          description="Datos del dueño, su estado de cuenta, deudas antiguas y pagos."
+        />
+      </div>
+    </section>
 
-    <SummaryStrip
-      items={[
-        { label: `Facturado · ${formatPeriod(period.month, period.year).toLowerCase()}`, value: formatUsd(m.period.billed), hint: `${m.period.issuedCount} de ${m.period.unitCount} recibos emitidos` },
-        { label: 'Cobrado en el mes', value: formatUsd(m.period.collected), tone: 'accent', hint: `${pct(m.period.collectionRate)} de lo facturado · ${m.period.paymentsCount} ${m.period.paymentsCount === 1 ? 'pago' : 'pagos'}` },
-        { label: 'Gastos del mes', value: formatUsd(m.period.expenses), hint: m.period.communityIncome > 0 ? `Ingresos de la comunidad: ${formatUsd(m.period.communityIncome)}` : 'Según la relación de gastos' },
-        { label: 'Saldo en caja', value: formatUsd(m.cash.balance), tone: m.cash.balance < 0 ? 'warning' : 'default', hint: ves(m.cash.balance) },
-      ]}
-    />
-
-    <TrendChart months={m.trend} />
-
-    <div class="grid gap-6 lg:grid-cols-2">
-      <section aria-labelledby="rec-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="rec-title" class="font-display text-2xl font-semibold">Cuentas por cobrar</h2>
-          <a href={`/admin/${condominium.slug}/cobranza?estado=pending`} class="text-sm font-bold text-accent">Ver pendientes</a>
-        </div>
-        <div class="flex flex-wrap gap-x-10 gap-y-2">
-          <p><span class="block text-sm text-ink-muted">Deuda total</span><span class="font-display text-3xl font-semibold text-warning">{formatUsd(m.receivables.outstanding)}</span></p>
-          <p><span class="block text-sm text-ink-muted">Casas con deuda</span><span class="font-display text-3xl font-semibold">{m.receivables.housesWithDebt} de {m.receivables.unitCount}</span></p>
-          {m.receivables.credit > 0 && <p><span class="block text-sm text-ink-muted">Saldos a favor</span><span class="font-display text-3xl font-semibold text-accent">{formatUsd(m.receivables.credit)}</span></p>}
-        </div>
-        <h3 class="text-sm font-bold">Antigüedad de la deuda</h3>
-        <AgingBars aging={m.receivables.aging} />
-      </section>
-
-      <section aria-labelledby="cash-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="cash-title" class="font-display text-2xl font-semibold">Caja</h2>
-          <a href={`/admin/${condominium.slug}/datos#caja`} class="text-sm font-bold text-accent">Saldo inicial</a>
-        </div>
-        <dl class="flex flex-col divide-y divide-line text-base">
-          <div class="flex justify-between gap-4 py-2">
-            <dt class="text-ink-muted">Saldo inicial{m.cash.openingBalanceDate ? ` (${formatDateVe(new Date(`${m.cash.openingBalanceDate}T12:00:00-04:00`))})` : ''}</dt>
-            <dd class="tabular font-bold">{formatUsd(m.cash.openingBalance)}</dd>
-          </div>
-          <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">+ Cobrado a las casas</dt><dd class="tabular font-bold">{formatUsd(m.cash.collected)}</dd></div>
-          <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">+ Ingresos de la comunidad</dt><dd class="tabular font-bold">{formatUsd(m.cash.communityIncome)}</dd></div>
-          <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">− Gastos del condominio</dt><dd class="tabular font-bold">{formatUsd(m.cash.expenses)}</dd></div>
-          <div class="flex justify-between gap-4 py-3 text-lg"><dt class="font-bold">= Saldo en caja</dt><dd class="tabular font-bold">{formatUsd(m.cash.balance)}</dd></div>
-        </dl>
-        <p class="text-sm text-ink-muted">
-          Fondo de reserva facturado (acumulado): <strong class="tabular text-ink">{formatUsd(m.cash.reserveFundBilled)}</strong>. Los gastos salen de las relaciones de gastos guardadas hasta este mes.
-        </p>
-      </section>
-    </div>
-
-    <section aria-labelledby="debtors-title" class="rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
-      <h2 id="debtors-title" class="font-display border-b border-line px-5 py-4 text-2xl font-semibold">Casas con más deuda</h2>
-      {
-        m.receivables.topDebtors.length === 0 ? (
-          <p class="p-6 text-base font-bold text-accent">Todas las casas están al día.</p>
-        ) : (
-          <ul class="divide-y divide-line">
-            {m.receivables.topDebtors.map((d) => (
-              <li>
-                <a href={`/admin/${condominium.slug}/casas/${d.house.id}`} class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 no-underline hover:bg-canvas/50">
-                  <span class="flex items-center gap-3">
-                    <span class="font-display inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-sunken px-2 text-lg font-semibold text-ink">{d.house.number}</span>
-                    <span>
-                      <span class="block font-bold text-ink">{d.house.ownerName ?? 'Sin propietario'}</span>
-                      <span class="text-xs text-ink-muted">Deuda más antigua: {d.oldestDate ? debtAgeLabel(d.oldestDate, today) : '—'}</span>
-                    </span>
+    <section aria-labelledby="month-title" class="rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <h2 id="month-title" class="font-display mb-1 text-3xl font-semibold">Este mes: {monthLabel}</h2>
+      <p class="mb-5 text-base text-ink-muted">Lo que hay que hacer cada mes, en orden.</p>
+      <ol class="flex flex-col divide-y divide-line">
+        {
+          checklist.map((c, i) => (
+            <li class="flex flex-wrap items-center justify-between gap-4 py-4">
+              <span class="flex items-center gap-4">
+                <span
+                  class:list={[
+                    'font-display inline-flex size-11 shrink-0 items-center justify-center rounded-full text-xl font-semibold',
+                    c.done ? 'bg-accent text-on-accent' : 'bg-sunken text-ink ring-2 ring-inset ring-line-strong',
+                  ]}
+                  aria-hidden="true"
+                >
+                  {c.done ? <Icon name="check" size={22} strokeWidth={3} /> : i + 1}
+                </span>
+                <span>
+                  <span class="block text-lg font-bold">
+                    {c.label}
+                    <span class="sr-only">{c.done ? ' (hecho)' : ' (pendiente)'}</span>
                   </span>
-                  <span class="tabular font-bold text-warning">{formatUsd(d.outstanding)}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )
-      }
+                  <span class:list={['text-base', c.done ? 'text-accent' : 'text-ink-muted']}>{c.detail}</span>
+                </span>
+              </span>
+              <Button href={c.href} size="md" variant={c.done ? 'secondary' : 'primary'} class="!w-auto px-5">{c.action}</Button>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <section aria-labelledby="numbers-title" class="flex flex-col gap-5">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 id="numbers-title" class="font-display text-3xl font-semibold">Números de {formatPeriod(period.month, period.year).toLowerCase()}</h2>
+          <p class="text-base text-ink-muted">Para ver otro mes, elíjalo y toque «Ver».</p>
+        </div>
+        <form method="get" class="flex flex-wrap items-end gap-3" aria-label="Elegir el mes de los números">
+          <FormSelect id="r-mes" name="mes" label="Mes" value={String(period.month)} options={allMonths().map((x) => ({ value: String(x.value), label: x.label }))} />
+          <FormSelect id="r-anio" name="anio" label="Año" value={String(period.year)} options={years.map((y) => ({ value: String(y), label: String(y) }))} />
+          <Button type="submit" size="md" variant="secondary">Ver</Button>
+        </form>
+      </div>
+
+      <SummaryStrip
+        items={[
+          { label: 'Facturado', value: formatUsd(m.period.billed), hint: `${m.period.issuedCount} de ${m.period.unitCount} recibos` },
+          { label: 'Cobrado', value: formatUsd(m.period.collected), tone: 'accent', hint: `${pct(m.period.collectionRate)} de lo facturado · ${m.period.paymentsCount} ${m.period.paymentsCount === 1 ? 'pago' : 'pagos'}` },
+          { label: 'Gastos', value: formatUsd(m.period.expenses), hint: m.period.communityIncome > 0 ? `Ingresos: ${formatUsd(m.period.communityIncome)}` : 'De la relación de gastos' },
+          { label: 'Dinero en caja hoy', value: formatUsd(m.cash.balance), tone: m.cash.balance < 0 ? 'warning' : 'default', hint: ves(m.cash.balance) },
+        ]}
+      />
+
+      <section aria-labelledby="debtors-title" class="rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+        <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-4">
+          <h3 id="debtors-title" class="font-display text-2xl font-semibold">Casas que más deben</h3>
+          <a href={`/admin/${slug}/cobranza?estado=pending`} class="text-base font-bold text-accent">Ver todo lo pendiente</a>
+        </div>
+        {
+          m.receivables.topDebtors.length === 0 ? (
+            <p class="p-6 text-lg font-bold text-accent">Todas las casas están al día.</p>
+          ) : (
+            <ul class="divide-y divide-line">
+              {m.receivables.topDebtors.map((d) => (
+                <li>
+                  <a href={`/admin/${slug}/casas/${d.house.id}`} class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 no-underline hover:bg-canvas/50">
+                    <span class="flex items-center gap-3">
+                      <span class="font-display inline-flex h-11 min-w-11 items-center justify-center rounded-xl bg-sunken px-2 text-lg font-semibold text-ink">{d.house.number}</span>
+                      <span>
+                        <span class="block font-bold text-ink">{d.house.ownerName ?? 'Sin propietario'}</span>
+                        <span class="text-sm text-ink-muted">Deuda más antigua: {d.oldestDate ? debtAgeLabel(d.oldestDate, today) : '—'}</span>
+                      </span>
+                    </span>
+                    <span class="flex items-center gap-3">
+                      <span class="tabular text-lg font-bold text-warning">{formatUsd(d.outstanding)}</span>
+                      <span class="text-base font-bold text-accent">Abrir</span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </section>
+
+      <details class="group rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line" open>
+        <summary class="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-lg font-bold">
+          <span class="flex items-center gap-3"><Icon name="chart" size={24} class="text-accent" /> Ver gráfico, caja y antigüedad de las deudas</span>
+          <span class="text-base text-accent group-open:hidden">Mostrar</span>
+          <span class="hidden text-base text-accent group-open:inline">Ocultar</span>
+        </summary>
+        <div class="flex flex-col gap-6 border-t border-line p-5">
+          <TrendChart months={m.trend} />
+
+          <div class="grid gap-6 lg:grid-cols-2">
+            <section aria-labelledby="rec-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 ring-1 ring-line">
+              <h3 id="rec-title" class="font-display text-2xl font-semibold">Cuentas por cobrar</h3>
+              <div class="flex flex-wrap gap-x-10 gap-y-2">
+                <p><span class="block text-sm text-ink-muted">Deuda total</span><span class="font-display text-3xl font-semibold text-warning">{formatUsd(m.receivables.outstanding)}</span></p>
+                <p><span class="block text-sm text-ink-muted">Casas con deuda</span><span class="font-display text-3xl font-semibold">{m.receivables.housesWithDebt} de {m.receivables.unitCount}</span></p>
+                {m.receivables.credit > 0 && <p><span class="block text-sm text-ink-muted">Saldos a favor</span><span class="font-display text-3xl font-semibold text-accent">{formatUsd(m.receivables.credit)}</span></p>}
+              </div>
+              <h4 class="text-sm font-bold">¿Desde hace cuánto deben?</h4>
+              <AgingBars aging={m.receivables.aging} />
+            </section>
+
+            <section aria-labelledby="cash-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 ring-1 ring-line">
+              <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 id="cash-title" class="font-display text-2xl font-semibold">Caja</h3>
+                <a href={`/admin/${slug}/datos#caja`} class="text-sm font-bold text-accent">Cambiar saldo inicial</a>
+              </div>
+              <dl class="flex flex-col divide-y divide-line text-base">
+                <div class="flex justify-between gap-4 py-2">
+                  <dt class="text-ink-muted">Saldo inicial{m.cash.openingBalanceDate ? ` (${formatDateVe(new Date(`${m.cash.openingBalanceDate}T12:00:00-04:00`))})` : ''}</dt>
+                  <dd class="tabular font-bold">{formatUsd(m.cash.openingBalance)}</dd>
+                </div>
+                <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">+ Cobrado a las casas</dt><dd class="tabular font-bold">{formatUsd(m.cash.collected)}</dd></div>
+                <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">+ Ingresos de la comunidad</dt><dd class="tabular font-bold">{formatUsd(m.cash.communityIncome)}</dd></div>
+                <div class="flex justify-between gap-4 py-2"><dt class="text-ink-muted">− Gastos del condominio</dt><dd class="tabular font-bold">{formatUsd(m.cash.expenses)}</dd></div>
+                <div class="flex justify-between gap-4 py-3 text-lg"><dt class="font-bold">= Dinero en caja</dt><dd class="tabular font-bold">{formatUsd(m.cash.balance)}</dd></div>
+              </dl>
+              <p class="text-sm text-ink-muted">
+                Fondo de reserva facturado (acumulado): <strong class="tabular text-ink">{formatUsd(m.cash.reserveFundBilled)}</strong>. Los gastos salen de las relaciones de gastos guardadas hasta este mes.
+              </p>
+            </section>
+          </div>
+        </div>
+      </details>
     </section>
   </div>
 </AdminLayout>

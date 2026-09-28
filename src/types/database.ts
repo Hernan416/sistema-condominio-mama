@@ -67,8 +67,6 @@ export interface InvoiceRow {
   amount: number | string; // USD. numeric puede llegar como string desde PostgREST
   exchange_rate: number | string | null; // Bs. por USD al generar
   exchange_rate_date: string | null; // YYYY-MM-DD
-  drive_file_id: string | null;
-  drive_file_url: string | null;
   status: 'pending' | 'generated' | 'paid';
   generated_at: string | null;
   paid_at: string | null;

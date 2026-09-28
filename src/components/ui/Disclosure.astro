@@ -1,0 +1,61 @@
+---
+// Sección plegable grande (divulgación progresiva): muestra un título claro y se abre al
+// tocarla. Si la dirección termina en #id de la sección (p. ej. tras guardar), se abre sola.
+import Icon, { type IconName } from '@/components/ui/Icon.astro';
+
+interface Props {
+  id: string;
+  title: string;
+  /** Frase que explica qué hay dentro. */
+  subtitle?: string;
+  icon?: IconName;
+  open?: boolean;
+  class?: string;
+}
+
+const { id, title, subtitle, icon, open = false, class: className } = Astro.props;
+---
+
+<details
+  id={id}
+  open={open}
+  data-disclosure
+  class:list={['group scroll-mt-6 rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line open:ring-2 open:ring-accent/40', className]}
+>
+  <summary class="flex min-h-20 cursor-pointer list-none items-center gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
+    {
+      icon && (
+        <span class="inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent-tint text-accent-strong">
+          <Icon name={icon} size={26} />
+        </span>
+      )
+    }
+    <span class="flex min-w-0 flex-1 flex-col">
+      <span class="font-display text-2xl font-semibold">{title}</span>
+      {subtitle && <span class="text-base text-ink-muted">{subtitle}</span>}
+    </span>
+    <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sunken px-4 py-2 text-base font-bold text-ink">
+      <span class="group-open:hidden">Abrir</span>
+      <span class="hidden group-open:inline">Cerrar</span>
+    </span>
+  </summary>
+  <div class="border-t border-line p-5">
+    <slot />
+  </div>
+</details>
+
+<script>
+  // Abre la sección a la que apunta el enlace (#pagos, #deudas…) y la lleva a la vista.
+  const openFromHash = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el instanceof HTMLDetailsElement && el.hasAttribute('data-disclosure')) {
+      el.open = true;
+      el.scrollIntoView({ block: 'start' });
+      el.querySelector<HTMLElement>('input:not([type=hidden]):not([type=radio]), select, textarea')?.focus({ preventScroll: true });
+    }
+  };
+  openFromHash();
+  window.addEventListener('hashchange', openFromHash);
+</script>

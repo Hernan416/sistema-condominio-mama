@@ -3,6 +3,8 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
 import HouseAccountsTable from '@/components/domain/HouseAccountsTable.astro';
 import SummaryStrip from '@/components/ui/SummaryStrip.astro';
+import Button from '@/components/ui/Button.astro';
+import Icon from '@/components/ui/Icon.astro';
 import { getAccountService, getAppName } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
@@ -19,17 +21,21 @@ const debtors = accounts.filter((a) => a.outstanding > 0);
 const today = isoDateInCaracas(new Date());
 ---
 
-<AdminLayout title={`Casas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+<AdminLayout title={`Casas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="casas">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}
     city={condominium.city}
     active="casas"
     rate={toExchangeRateView(rate)}
-    description="Datos de cada propietario y su estado de cuenta: recibos, deudas registradas, pagos y abonos."
+    description="Toque una casa para anotar un pago, ver lo que debe, agregar una deuda antigua o cambiar los datos del dueño."
   />
 
   <div class="flex flex-col gap-6">
+    <div class="flex flex-wrap gap-3">
+      <Button href={`/admin/${condominium.slug}/pagos/nuevo`} size="lg" class="!w-auto px-6"><Icon name="cash" size={24} /> Anotar un pago</Button>
+      <Button href={`/admin/${condominium.slug}/cobranza?estado=pending`} size="lg" variant="secondary" class="!w-auto px-6"><Icon name="alert" size={24} /> Ver quién debe</Button>
+    </div>
     <SummaryStrip
       items={[
         { label: 'Casas', value: String(accounts.length) },

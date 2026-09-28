@@ -1,4 +1,6 @@
 ---
+// Ficha de una casa. Orden pensado para la tarea: 1) ¿cuánto debe? 2) ¿qué quiere hacer?
+// (tres botones grandes que abren su formulario) 3) historial. Nada se muestra todo a la vez.
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
 import AccountStatement from '@/components/domain/AccountStatement.astro';
@@ -6,13 +8,15 @@ import PaymentForm from '@/components/domain/PaymentForm.astro';
 import DebtForm from '@/components/domain/DebtForm.astro';
 import HouseProfileForm from '@/components/domain/HouseProfileForm.astro';
 import Alert from '@/components/ui/Alert.astro';
+import Disclosure from '@/components/ui/Disclosure.astro';
 import Icon from '@/components/ui/Icon.astro';
 import SummaryStrip from '@/components/ui/SummaryStrip.astro';
 import { getAccountService, getAppName } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
-import { formatUsd } from '@/utils/currency';
+import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
 import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
+import { debtAgeLabel } from '@/utils/ledger';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
@@ -34,12 +38,14 @@ const today = isoDateInCaracas(new Date());
 const base = `/api/admin/${condominium.slug}/casas/${house.id}`;
 const ok = Astro.url.searchParams.get('ok')?.slice(0, 200) ?? null;
 const error = Astro.url.searchParams.get('error')?.slice(0, 300) ?? null;
+const action = Astro.url.searchParams.get('accion');
 const suggested = Astro.url.searchParams.get('monto') ?? (account.outstanding > 0 ? account.outstanding.toFixed(2) : null);
 const todayRate = rate ? String(Math.round(rate.usdToVes * 10000) / 10000).replace('.', ',') : null;
 const lastPayment = account.payments[0] ?? null;
+const date = (iso: string) => formatDateVe(new Date(`${iso}T12:00:00-04:00`));
 ---
 
-<AdminLayout title={`Casa ${house.number} · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+<AdminLayout title={`Casa ${house.number} · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="casas">
   <CondominiumHeader
     name={condominium.name}
     title={`Casa ${house.number}`}
@@ -47,14 +53,14 @@ const lastPayment = account.payments[0] ?? null;
     city={null}
     active="casas"
     rate={toExchangeRateView(rate)}
-    description={`${condominium.name} · ${house.ownerName ?? 'Sin propietario registrado'} · usuario ${house.username}`}
+    description={`${house.ownerName ?? 'Sin propietario registrado'} · Aquí puede anotar sus pagos, ver lo que debe y cambiar los datos de la casa.`}
   />
 
-  <nav aria-label="Navegación entre casas" class="mb-6 flex flex-wrap items-center justify-between gap-3 text-sm font-bold">
-    <a href={`/admin/${condominium.slug}/casas`} class="inline-flex items-center gap-1.5 text-accent no-underline hover:underline">← Todas las casas</a>
-    <span class="flex gap-4">
-      {prev && <a href={`/admin/${condominium.slug}/casas/${prev.id}`} class="text-ink-muted no-underline hover:text-ink">← Casa {prev.number}</a>}
-      {next && <a href={`/admin/${condominium.slug}/casas/${next.id}`} class="inline-flex items-center gap-1 text-ink-muted no-underline hover:text-ink">Casa {next.number} <Icon name="arrow-right" size={14} /></a>}
+  <nav aria-label="Navegación entre casas" class="mb-6 flex flex-wrap items-center justify-between gap-3 text-base font-bold">
+    <a href={`/admin/${condominium.slug}/casas`} class="inline-flex min-h-11 items-center gap-2 text-accent no-underline hover:underline"><Icon name="arrow-left" size={18} /> Volver a todas las casas</a>
+    <span class="flex gap-5">
+      {prev && <a href={`/admin/${condominium.slug}/casas/${prev.id}`} class="inline-flex min-h-11 items-center gap-1.5 text-ink-muted no-underline hover:text-ink"><Icon name="arrow-left" size={16} /> Casa {prev.number}</a>}
+      {next && <a href={`/admin/${condominium.slug}/casas/${next.id}`} class="inline-flex min-h-11 items-center gap-1.5 text-ink-muted no-underline hover:text-ink">Casa {next.number} <Icon name="arrow-right" size={16} /></a>}
     </span>
   </nav>
 
@@ -62,35 +68,62 @@ const lastPayment = account.payments[0] ?? null;
     {ok && <Alert tone="info">{ok}</Alert>}
     {error && <Alert>{error}</Alert>}
 
+    <!-- 1. ¿Cuánto debe? -->
+    <section aria-label="Situación de la casa" class="flex flex-wrap items-center justify-between gap-5 rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
+      {
+        account.outstanding > 0 ? (
+          <div>
+            <p class="text-lg text-ink-muted">Esta casa debe</p>
+            <p class="font-display text-5xl font-semibold text-warning">{formatUsd(account.outstanding)}</p>
+            <p class="text-base text-ink-muted">
+              {rate ? `${formatVes(usdToVes(account.outstanding, rate.usdToVes))} a la tasa de hoy · ` : ''}
+              Deuda más antigua: {account.oldestPendingDate ? debtAgeLabel(account.oldestPendingDate, today) : '—'}
+            </p>
+          </div>
+        ) : (
+          <div class="flex items-center gap-4">
+            <span class="inline-flex size-14 items-center justify-center rounded-2xl bg-accent-tint text-accent"><Icon name="check" size={30} strokeWidth={3} /></span>
+            <div>
+              <p class="font-display text-4xl font-semibold text-accent">Está al día</p>
+              {account.credit > 0 && <p class="text-lg">Tiene <strong>{formatUsd(account.credit)}</strong> a favor para el próximo recibo.</p>}
+            </div>
+          </div>
+        )
+      }
+      <a href="#pagos" class="inline-flex min-h-14 items-center gap-2 rounded-[var(--radius-control)] bg-accent px-6 text-lg font-bold text-on-accent no-underline shadow-[var(--shadow-button)] hover:bg-accent-strong">
+        <Icon name="cash" size={24} /> Anotar un pago
+      </a>
+    </section>
+
     <SummaryStrip
       items={[
-        { label: 'Deuda pendiente', value: formatUsd(account.outstanding), tone: account.outstanding > 0 ? 'warning' : 'accent', hint: account.oldestPendingDate ? `La más antigua: ${formatDateVe(new Date(`${account.oldestPendingDate}T12:00:00-04:00`))}` : 'Al día' },
         { label: 'Saldo a favor', value: formatUsd(account.credit), tone: account.credit > 0 ? 'accent' : 'default' },
         { label: 'Total pagado', value: formatUsd(account.totalPaid), hint: `${account.payments.length} ${account.payments.length === 1 ? 'pago' : 'pagos'}` },
-        { label: 'Último pago', value: lastPayment ? formatUsd(lastPayment.amount) : '—', hint: lastPayment ? formatDateVe(new Date(`${lastPayment.date}T12:00:00-04:00`)) : 'Sin pagos' },
+        { label: 'Último pago', value: lastPayment ? formatUsd(lastPayment.amount) : '—', hint: lastPayment ? date(lastPayment.date) : 'Sin pagos' },
       ]}
     />
 
-    <div class="grid gap-6 xl:grid-cols-2">
-      <section id="pagos" aria-labelledby="pay-title" class="scroll-mt-6 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
-        <h2 id="pay-title" class="font-display mb-4 text-2xl font-semibold">Registrar pago o abono</h2>
+    <!-- 2. ¿Qué quiere hacer? Cada tarea se abre al tocarla. -->
+    <div class="flex flex-col gap-4">
+      <h2 class="font-display text-3xl font-semibold">¿Qué desea hacer con esta casa?</h2>
+      <Disclosure id="pagos" icon="cash" title="Anotar un pago o abono" subtitle="Cuando le pagan, aunque sea una parte. Se descuenta primero de la deuda más antigua." open={action === 'pago'}>
         <PaymentForm action={`${base}/pagos`} today={today} suggestedAmount={suggested} todayRate={todayRate} />
-      </section>
-      <section id="deudas" aria-labelledby="debt-title" class="scroll-mt-6 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
-        <h2 id="debt-title" class="font-display mb-1 text-2xl font-semibold">Agregar deuda existente</h2>
-        <p class="mb-4 text-sm text-ink-muted">Saldos de antes de usar el sistema, acuerdos de pago, reparaciones… Se cobran junto a los recibos, empezando por la más antigua.</p>
+      </Disclosure>
+      <Disclosure id="deudas" icon="plus" title="Agregar una deuda antigua" subtitle="Deudas de antes de usar el sistema, multas o reparaciones que esta casa debe.">
         <DebtForm action={`${base}/deudas`} today={today} />
-      </section>
+      </Disclosure>
+      <Disclosure id="datos" icon="edit" title="Cambiar los datos de la casa" subtitle={`Dueño, cédula, teléfono, correo e inquilino. Usuario del vecino: ${house.username}`}>
+        <HouseProfileForm action={`${base}/perfil`} house={house} />
+      </Disclosure>
     </div>
 
-    <div class="flex flex-col gap-6">
-      <h2 class="font-display text-2xl font-semibold">Estado de cuenta</h2>
+    <!-- 3. Historial. -->
+    <div class="flex flex-col gap-4">
+      <div>
+        <h2 class="font-display text-3xl font-semibold">Historial de la casa</h2>
+        <p class="text-base text-ink-muted">Arriba, lo que se le ha cobrado (recibos y deudas) y cuánto falta. Abajo, los pagos que ha hecho.</p>
+      </div>
       <AccountStatement charges={account.charges} payments={account.payments} deletePaymentAction={`${base}/pagos-anular`} deleteDebtAction={`${base}/deudas-eliminar`} />
     </div>
-
-    <section id="datos" aria-labelledby="profile-title" class="scroll-mt-6 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
-      <h2 id="profile-title" class="font-display mb-4 text-2xl font-semibold">Datos de la casa</h2>
-      <HouseProfileForm action={`${base}/perfil`} house={house} />
-    </section>
   </div>
 </AdminLayout>

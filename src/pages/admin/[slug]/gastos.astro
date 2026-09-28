@@ -6,13 +6,13 @@ import { getAppName, getBillingService, getCondominiumService } from '@/services
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateDto, toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { toBillingSheetDto, toUnitDto } from '@/adapters/invoiceDtoAdapter';
-import { currentPeriod } from '@/utils/months';
+import { periodFromQuery } from '@/utils/months';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
 const { admin, condominium, condominiums, rate } = page;
 
-const period = currentPeriod();
+const period = periodFromQuery(Astro.url.searchParams);
 const [{ sheet, origin }, units, full] = await Promise.all([
   getBillingService().getSheet(condominium, period),
   getCondominiumService().listUnits(condominium),
@@ -20,14 +20,15 @@ const [{ sheet, origin }, units, full] = await Promise.all([
 ]);
 ---
 
-<AdminLayout title={`Gastos · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+<AdminLayout title={`Gastos · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="gastos">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}
     city={condominium.city}
     active="gastos"
+    stepDone={{ gastos: origin === 'saved' }}
     rate={toExchangeRateView(rate)}
-    description="Cargue los gastos del mes (iguales para todos), los cargos o abonos de cada unidad y las notas personalizadas. Los totales se recalculan al instante."
+    description="Cada mes se hace en dos pasos. Ahora está en el paso 1: anote lo que gastó el condominio y toque «Guardar gastos». El sistema calcula cuánto le toca a cada casa."
   />
   <BillingSheetEditor
     client:load

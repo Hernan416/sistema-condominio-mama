@@ -54,14 +54,14 @@ export default function UnitsEditor({ condominiumSlug, initialUnits, initialSche
 
       <AliquotSchemePanel state={u} />
 
-      <div className="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <div className="relative overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
         <table className="w-full min-w-[640px] text-base">
           <thead className="bg-canvas/60">
             <tr className="border-b border-line">
               <th scope="col" className={`${th} w-12`}>
                 <input type="checkbox" aria-label="Seleccionar todas" className="size-5 cursor-pointer accent-[var(--color-accent)]" checked={allSelected} onChange={() => u.setAllSelected(!allSelected)} />
               </th>
-              <th scope="col" className={th}>Unidad</th>
+              <th scope="col" className={th}>Casa</th>
               <th scope="col" className={th}>Propietario</th>
               <th scope="col" className={`${th} w-56`}>Tipo</th>
               <th scope="col" className={`${th} w-36`}>Alícuota (%)</th>
@@ -115,7 +115,7 @@ export default function UnitsEditor({ condominiumSlug, initialUnits, initialSche
         </table>
       </div>
 
-      <SaveBar dirty={u.dirty} saving={u.saving} error={u.error} savedMessage={u.savedMessage} onSave={u.save} onDiscard={u.discard} saveLabel="Guardar unidades y alícuotas" />
+      <SaveBar dirty={u.dirty} saving={u.saving} error={u.error} savedMessage={u.savedMessage} onSave={u.save} onDiscard={u.discard} saveLabel="Guardar alícuotas" />
     </div>
   );
 }

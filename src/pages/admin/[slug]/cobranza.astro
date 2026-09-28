@@ -11,6 +11,7 @@ import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { PAYMENT_METHOD_LABELS } from '@/types/accounts';
 import { formatUsd, formatVes } from '@/utils/currency';
 import { formatDateVe } from '@/utils/dates';
+import { adminInvoicePdfPath } from '@/utils/invoiceNaming';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
@@ -42,14 +43,14 @@ const link = (params: Record<string, string | null>) => {
 };
 ---
 
-<AdminLayout title={`Cobranza · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+<AdminLayout title={`Cobranza · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="cobranza">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}
     city={condominium.city}
     active="cobranza"
     rate={toExchangeRateView(rate)}
-    description="Historial de recibos y deudas con su estado de pago, y de todos los pagos recibidos."
+    description="Aquí se consulta, no se cambia nada: qué recibos están pagados o pendientes y todos los pagos que ha recibido."
   />
 
   <div class="flex flex-col gap-6">
@@ -98,19 +99,19 @@ const link = (params: Record<string, string | null>) => {
         <>
           <SummaryStrip
             items={[
-              { label: 'Cargos', value: String(charges.totals.count), hint: `${charges.totals.paidCount} pagados` },
+              { label: 'Cargos', value: String(charges.totals.count), hint: `${charges.totals.paidCount} ${charges.totals.paidCount === 1 ? 'pagado' : 'pagados'}` },
               { label: 'Facturado', value: formatUsd(charges.totals.charged) },
               { label: 'Cobrado', value: formatUsd(charges.totals.paid), tone: 'accent' },
               { label: 'Pendiente', value: formatUsd(charges.totals.outstanding), tone: charges.totals.outstanding > 0 ? 'warning' : 'default' },
             ]}
           />
-          <div class="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+          <div class="relative overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
             <table class="w-full min-w-[720px] text-base">
               <thead class="bg-canvas/60">
                 <tr class="border-b border-line">
-                  <th scope="col" class={th}>Fecha</th>
                   <th scope="col" class={th}>Casa</th>
                   <th scope="col" class={th}>Concepto</th>
+                  <th scope="col" class={th}>Último pago</th>
                   <th scope="col" class={`${th} text-right`}>Monto</th>
                   <th scope="col" class={`${th} text-right`}>Pendiente</th>
                   <th scope="col" class={th}>Estado</th>
@@ -120,18 +121,18 @@ const link = (params: Record<string, string | null>) => {
                 {charges.rows.length === 0 && (
                   <tr><td colspan="6" class="p-8 text-center text-ink-muted">No hay cargos con estos filtros.</td></tr>
                 )}
-                {charges.rows.map(({ house, charge: c }) => (
+                {charges.rows.map(({ house, charge: c, lastPaidOn }) => (
                   <tr class="border-b border-line last:border-b-0 hover:bg-canvas/50">
-                    <td class="tabular whitespace-nowrap px-4 py-3 text-sm text-ink-muted">{date(c.date)}</td>
                     <td class="whitespace-nowrap px-4 py-3">
                       <a href={`/admin/${condominium.slug}/casas/${house.id}`} class="font-bold text-ink no-underline hover:underline">Casa {house.number}</a>
                       <span class="block max-w-44 truncate text-xs text-ink-muted">{house.ownerName ?? ''}</span>
                     </td>
                     <td class="px-4 py-3">
                       <span class="font-bold">{c.label}</span>
-                      {c.invoice?.driveFileUrl && <a href={c.invoice.driveFileUrl} target="_blank" rel="noopener" class="ml-2 text-xs font-bold text-accent underline">PDF</a>}
-                      {c.source === 'debt' && <span class="block text-xs text-ink-muted">Deuda registrada</span>}
+                      {c.invoice && <a href={adminInvoicePdfPath(c.invoice.id)} target="_blank" rel="noopener" class="ml-2 text-xs font-bold text-accent underline">PDF</a>}
+                      <span class="block text-xs text-ink-muted">{c.source === 'debt' ? `Deuda registrada · desde el ${date(c.date)}` : 'Recibo mensual'}</span>
                     </td>
+                    <td class="tabular whitespace-nowrap px-4 py-3 text-sm">{lastPaidOn ? <span class="font-bold">{date(lastPaidOn)}</span> : <span class="text-ink-muted">Sin pagos</span>}</td>
                     <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold">{formatUsd(c.amount)}</td>
                     <td class:list={['tabular whitespace-nowrap px-4 py-3 text-right font-bold', c.outstanding > 0 ? 'text-warning' : 'text-ink-muted']}>{formatUsd(c.outstanding)}</td>
                     <td class="px-4 py-3"><span class:list={['inline-flex whitespace-nowrap rounded-full px-3 py-1 text-sm font-bold', statusView[c.status].cls]}>{statusView[c.status].label}</span></td>
@@ -150,7 +151,7 @@ const link = (params: Record<string, string | null>) => {
               { label: 'En bolívares', value: String(vesCount), hint: vesCount === 1 ? 'pago convertido a USD' : 'pagos convertidos a USD' },
             ]}
           />
-          <div class="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+          <div class="relative overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
             <table class="w-full min-w-[720px] text-base">
               <thead class="bg-canvas/60">
                 <tr class="border-b border-line">

@@ -83,7 +83,7 @@ export function useInvoiceGeneration({ condominiumSlug, initialPeriod, initialRo
     [rows],
   );
 
-  // Secuencial a propósito: respeta los límites de la API de Drive y de Vercel.
+  // Secuencial a propósito: respeta los límites de Vercel.
   const generateAll = useCallback(async () => {
     const ids = pendingHouseIds;
     if (ids.length === 0) return;

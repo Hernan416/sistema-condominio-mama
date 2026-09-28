@@ -62,4 +62,13 @@ export const MIGRATIONS: Record<number, (db: Record<string, unknown>) => void> =
       inv.status = 'generated';
     }
   },
+  // v8 → v9: sin almacenamiento de archivos. El PDF se genera al momento desde los datos
+  // del recibo; se borran las referencias al archivo guardado.
+  8: (raw) => {
+    const db = raw as unknown as { invoices: Record<string, unknown>[] };
+    for (const inv of db.invoices) {
+      delete inv.drive_file_id;
+      delete inv.drive_file_url;
+    }
+  },
 };

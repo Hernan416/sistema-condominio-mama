@@ -101,6 +101,19 @@
   --shadow-button: 0 1px 1px rgb(0 0 0 / 0.4), 0 8px 20px -6px rgb(60 201 148 / 0.35);
 }
 
+/*
+ * Panel de la administradora (55+ años, poca experiencia digital): el texto pequeño nunca baja
+ * de ~15px (NN/g: evitar letra diminuta). Solo cambia el tamaño de letra, no los anchos.
+ */
+.admin-scale {
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.55;
+}
+
 @layer base {
   html {
     background: var(--color-canvas);

@@ -14,7 +14,6 @@ function required(name: keyof typeof env, provider: string): string {
 
 export const config = {
   dataProvider: env.DATA_PROVIDER,
-  storageProvider: env.STORAGE_PROVIDER,
   appName: env.APP_NAME,
   cronSecret: env.CRON_SECRET ?? null,
 
@@ -33,6 +32,7 @@ export const config = {
     dataDir: env.LOCAL_DATA_DIR,
     adminEmail: env.LOCAL_ADMIN_EMAIL,
     adminPassword: env.LOCAL_ADMIN_PASSWORD,
+    adminName: env.LOCAL_ADMIN_NAME,
   },
 
   supabase() {
@@ -41,17 +41,6 @@ export const config = {
       url: required('SUPABASE_URL', provider),
       anonKey: required('SUPABASE_ANON_KEY', provider),
       serviceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY', provider),
-    };
-  },
-
-  googleDrive() {
-    const provider = 'STORAGE_PROVIDER=google';
-    return {
-      clientId: required('GOOGLE_CLIENT_ID', provider),
-      clientSecret: required('GOOGLE_CLIENT_SECRET', provider),
-      refreshToken: required('GOOGLE_REFRESH_TOKEN', provider),
-      rootFolderId: required('GOOGLE_DRIVE_ROOT_FOLDER_ID', provider),
-      publicLinks: env.GOOGLE_DRIVE_PUBLIC_LINKS,
     };
   },
 

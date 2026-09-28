@@ -6,24 +6,25 @@ import { getAppName, getBillingService } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateDto, toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { toInvoiceRowDto } from '@/adapters/invoiceDtoAdapter';
-import { currentPeriod } from '@/utils/months';
+import { periodFromQuery } from '@/utils/months';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
 const { admin, condominium, condominiums, rate } = page;
 
-const period = currentPeriod();
+const period = periodFromQuery(Astro.url.searchParams);
 const { units, origin } = await getBillingService().preview(condominium, period);
 ---
 
-<AdminLayout title={`Facturas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+<AdminLayout title={`Facturas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="facturas">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}
     city={condominium.city}
     active="facturas"
+    stepDone={{ gastos: origin === 'saved' }}
     rate={toExchangeRateView(rate)}
-    description="Revise el total de cada unidad, emita los recibos y registre los pagos. Los montos salen de la relación de gastos del mes."
+    description="Paso 2: revise cuánto paga cada casa y toque «Emitir los recibos que faltan». Cada vecino podrá ver y descargar el suyo."
   />
   <InvoiceGenerator
     client:load

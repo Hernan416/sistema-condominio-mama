@@ -1,6 +1,6 @@
 // Composition root: el ÚNICO lugar que conoce las implementaciones concretas.
-// Cambiar de almacenamiento local a Supabase / Google Drive = cambiar DATA_PROVIDER /
-// STORAGE_PROVIDER en el .env. Ningún endpoint, página ni componente se entera.
+// Cambiar de datos locales a Supabase = cambiar DATA_PROVIDER en el .env. Ningún endpoint,
+// página ni componente se entera. No hay almacenamiento de archivos: los PDF se generan al momento.
 import type { AstroCookies } from 'astro';
 import { config } from '@/services/config';
 import type {
@@ -12,7 +12,6 @@ import type {
   HouseDebtRepository,
   HouseRepository,
   InvoiceRepository,
-  InvoiceStorage,
   PaymentRepository,
   PinVerifier,
 } from '@/services/contracts';
@@ -36,7 +35,6 @@ import { LocalHouseRepository } from '@/services/repositories/LocalHouseReposito
 import { LocalInvoiceRepository } from '@/services/repositories/LocalInvoiceRepository';
 import { LocalPinVerifier } from '@/services/auth/LocalPinVerifier';
 import { LocalAdminAuthenticator } from '@/services/auth/LocalAdminAuthenticator';
-import { LocalFileStorage } from '@/services/storage/LocalFileStorage';
 // Nube
 import { getServiceClient } from '@/services/supabase/clients';
 import { SupabaseBillingSheetRepository } from '@/services/repositories/SupabaseBillingSheetRepository';
@@ -47,7 +45,6 @@ import { SupabaseHouseRepository } from '@/services/repositories/SupabaseHouseRe
 import { SupabaseInvoiceRepository } from '@/services/repositories/SupabaseInvoiceRepository';
 import { SupabasePinVerifier } from '@/services/auth/SupabasePinVerifier';
 import { SupabaseAdminAuthenticator } from '@/services/auth/SupabaseAdminAuthenticator';
-import { GoogleDriveFacade } from '@/services/storage/GoogleDriveFacade';
 
 interface DataLayer {
   condominiums: CondominiumRepository;
@@ -75,7 +72,7 @@ const dataProviders: Record<typeof config.dataProvider, () => DataLayer> = {
       exchangeRates: new LocalExchangeRateRepository(store),
       pins: new LocalPinVerifier(store),
       adminAuth: (_request, cookies) =>
-        new LocalAdminAuthenticator(cookies, { email: config.local.adminEmail, password: config.local.adminPassword }),
+        new LocalAdminAuthenticator(cookies, { email: config.local.adminEmail, password: config.local.adminPassword, name: config.local.adminName }),
     };
   },
   supabase() {
@@ -92,11 +89,6 @@ const dataProviders: Record<typeof config.dataProvider, () => DataLayer> = {
       adminAuth: (request, cookies) => new SupabaseAdminAuthenticator(request, cookies, db),
     };
   },
-};
-
-const storageProviders: Record<typeof config.storageProvider, () => InvoiceStorage> = {
-  local: () => new LocalFileStorage(config.local.dataDir),
-  google: () => new GoogleDriveFacade(config.googleDrive()),
 };
 
 function exchangeRateProvider(): ExchangeRateProvider {
@@ -124,7 +116,7 @@ function localStore(): LocalJsonStore {
   return (store ??= new LocalJsonStore(config.local.dataDir));
 }
 
-if (import.meta.env.PROD && (config.dataProvider === 'local' || config.storageProvider === 'local')) {
+if (import.meta.env.PROD && config.dataProvider === 'local') {
   console.warn('[config] Modo local activo en producción: en Vercel el disco es efímero y los datos se perderán.');
 }
 
@@ -138,7 +130,6 @@ export function getInvoiceService(): InvoiceService {
       invoices,
       getBillingService(),
       new PdfInvoiceFacade(),
-      storageProviders[config.storageProvider](),
       getExchangeRates(),
     );
   }

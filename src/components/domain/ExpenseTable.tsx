@@ -43,7 +43,7 @@ export function ExpenseTable({ expenses, texts, invalidIds, totals, reserveFundP
         <div>
           <h2 id="expenses-title" className="font-display text-2xl font-semibold">Gastos del condominio</h2>
           <p className="mt-1 max-w-[70ch] text-sm text-ink-muted">
-            Iguales para todas las unidades: cada una paga su parte según su alícuota (o en partes iguales, si así lo acordó la asamblea).
+            Lo que gastó el condominio este mes (vigilancia, luz, limpieza…). El sistema lo reparte solo entre las casas, según su alícuota (su parte) o en partes iguales.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

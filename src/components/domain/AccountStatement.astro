@@ -4,6 +4,8 @@ import type { AccountCharge, AccountPayment } from '@/services/accounts/AccountS
 import { PAYMENT_METHOD_LABELS } from '@/types/accounts';
 import { formatUsd, formatVes } from '@/utils/currency';
 import { formatDateVe } from '@/utils/dates';
+import { formatPeriod } from '@/utils/months';
+import { adminInvoicePdfPath } from '@/utils/invoiceNaming';
 
 interface Props {
   charges: AccountCharge[];
@@ -28,11 +30,11 @@ const statusView = {
     charges.length === 0 ? (
       <p class="p-6 text-base text-ink-muted">Sin recibos emitidos ni deudas registradas.</p>
     ) : (
-      <div class="overflow-x-auto">
+      <div class="relative overflow-x-auto">
         <table class="w-full min-w-[640px] text-base">
           <thead class="bg-canvas/60">
             <tr class="border-b border-line">
-              <th scope="col" class={th}>Fecha</th>
+              <th scope="col" class={th}>Mes o fecha</th>
               <th scope="col" class={th}>Concepto</th>
               <th scope="col" class={`${th} text-right`}>Monto</th>
               <th scope="col" class={`${th} text-right`}>Pendiente</th>
@@ -42,7 +44,7 @@ const statusView = {
           <tbody>
             {[...charges].reverse().map((c) => (
               <tr class="border-b border-line last:border-b-0 align-top">
-                <td class="tabular whitespace-nowrap px-4 py-3 text-sm text-ink-muted">{date(c.date)}</td>
+                <td class="tabular whitespace-nowrap px-4 py-3 text-sm text-ink-muted">{c.invoice ? formatPeriod(c.invoice.month, c.invoice.year) : date(c.date)}</td>
                 <td class="px-4 py-3">
                   <span class="block font-bold text-ink">{c.label}</span>
                   <span class="text-xs text-ink-muted">
@@ -50,8 +52,8 @@ const statusView = {
                     {c.debt?.detail ? ` · ${c.debt.detail}` : ''}
                   </span>
                   <div class="mt-1 flex gap-3">
-                    {c.invoice?.driveFileUrl && (
-                      <a href={c.invoice.driveFileUrl} target="_blank" rel="noopener" class="text-xs font-bold text-accent underline">Ver PDF</a>
+                    {c.invoice && (
+                      <a href={adminInvoicePdfPath(c.invoice.id)} target="_blank" rel="noopener" class="text-xs font-bold text-accent underline">Ver PDF</a>
                     )}
                     {c.debt && (
                       <form

@@ -14,14 +14,14 @@ const service = getCondominiumService();
 const [units, full] = await Promise.all([service.listUnits(condominium), service.getWithSettings(condominium)]);
 ---
 
-<AdminLayout title={`Alícuotas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+<AdminLayout title={`Alícuotas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="alicuotas">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}
     city={condominium.city}
     active="alicuotas"
     rate={toExchangeRateView(rate)}
-    description="Alícuota de cada casa, a mano o calculada con tipos (&quot;Casa pequeña&quot;, &quot;Casa grande&quot;…). Los datos del propietario están en Casas y cuentas."
+    description="La alícuota es la parte de los gastos que le toca a cada casa. Se configura una sola vez (o cuando cambie el documento del condominio)."
   />
   <UnitsEditor client:load condominiumSlug={condominium.slug} initialUnits={units.map(toUnitDto)} initialScheme={full.aliquotScheme} />
 </AdminLayout>

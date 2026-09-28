@@ -15,14 +15,14 @@ const saved = Astro.url.searchParams.get('guardado') === '1';
 const error = Astro.url.searchParams.get('error')?.slice(0, 200) ?? null;
 ---
 
-<AdminLayout title={`Datos · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug}>
+<AdminLayout title={`Datos · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="datos">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}
     city={condominium.city}
     active="datos"
     rate={toExchangeRateView(rate)}
-    description="Información legal y de pago que aparece en cada recibo, y los valores por defecto de facturación."
+    description="Se configura una sola vez: lo que se imprime en los recibos (nombre, RIF, cuentas para pagar) y el dinero con que empezó la caja."
   />
   <CondominiumSettingsForm condominium={full} saved={saved} error={error} />
 </AdminLayout>

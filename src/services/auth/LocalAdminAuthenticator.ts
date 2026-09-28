@@ -11,7 +11,7 @@ const MAX_AGE_SECONDS = 60 * 60 * 12;
 export class LocalAdminAuthenticator implements AdminAuthenticator {
   constructor(
     private readonly cookies: AstroCookies,
-    private readonly credentials: { email: string; password: string },
+    private readonly credentials: { email: string; password: string; name: string },
   ) {}
 
   async signIn(email: string, password: string): Promise<AdminSession | null> {
@@ -20,7 +20,7 @@ export class LocalAdminAuthenticator implements AdminAuthenticator {
       safeEqual(password, this.credentials.password);
     if (!ok) return null;
 
-    const session = { userId: 'local-admin', email: this.credentials.email };
+    const session = { userId: 'local-admin', email: this.credentials.email, name: this.credentials.name || null };
     await writeSignedCookie(this.cookies, ADMIN_COOKIE, session.userId, { email: session.email }, MAX_AGE_SECONDS);
     return session;
   }
@@ -28,7 +28,7 @@ export class LocalAdminAuthenticator implements AdminAuthenticator {
   async currentAdmin(): Promise<AdminSession | null> {
     const payload = await readSignedCookie(this.cookies, ADMIN_COOKIE);
     if (!payload?.sub) return null;
-    return { userId: payload.sub, email: typeof payload.email === 'string' ? payload.email : null };
+    return { userId: payload.sub, email: typeof payload.email === 'string' ? payload.email : null, name: this.credentials.name || null };
   }
 
   async signOut(): Promise<void> {

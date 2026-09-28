@@ -6,6 +6,7 @@ import type { RowState } from '@/hooks/useInvoiceGeneration';
 import type { InvoiceRowDto } from '@/types/dto';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
 import { formatPercent } from '@/utils/billingCalculator';
+import { adminInvoicePdfPath } from '@/utils/invoiceNaming';
 
 interface Props {
   rows: InvoiceRowDto[];
@@ -21,7 +22,7 @@ interface Props {
 function statusView(row: InvoiceRowDto): { tone: BadgeTone; label: string } {
   if (!row.invoice || row.invoice.status === 'pending') return { tone: 'neutral', label: 'Sin emitir' };
   if (row.payment?.status === 'paid') return { tone: 'success', label: 'Pagada' };
-  if (row.outdated) return { tone: 'warning', label: 'Desactualizada' };
+  if (row.outdated) return { tone: 'warning', label: 'Hay cambios: vuelva a emitir' };
   if (row.payment?.status === 'partial') return { tone: 'warning', label: 'Abono parcial' };
   return { tone: 'warning', label: 'Por cobrar' };
 }
@@ -34,20 +35,18 @@ export function InvoiceTable({ rows, rowStates, usdToVes: rate, disabled, canIss
   if (rows.length === 0) {
     return (
       <p className="rounded-[var(--radius-card)] border-2 border-dashed border-line p-10 text-lg text-ink-muted">
-        Este condominio todavía no tiene unidades registradas.
+        Este condominio todavía no tiene casas registradas.
       </p>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
-      <table className="w-full min-w-[860px] text-base">
+    <div className="relative overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <table className="w-full min-w-[720px] text-base">
         <thead className="bg-canvas/60">
           <tr className="border-b border-line">
-            <th scope="col" className={th}>Unidad</th>
+            <th scope="col" className={th}>Casa</th>
             <th scope="col" className={th}>Propietario</th>
-            <th scope="col" className={`${th} text-right`}>Mes</th>
-            <th scope="col" className={`${th} whitespace-nowrap text-right`}>Deuda ant.</th>
             <th scope="col" className={`${th} whitespace-nowrap text-right`}>Total a pagar</th>
             <th scope="col" className={th}>Estado</th>
             <th scope="col" className={`${th} text-right`}><span className="sr-only">Acciones</span></th>
@@ -77,8 +76,7 @@ export function InvoiceTable({ rows, rowStates, usdToVes: rate, disabled, canIss
                         {row.houseNumber}
                       </span>
                       <span className="flex flex-col">
-                        <code className="whitespace-nowrap text-sm font-normal text-ink-muted">{row.username}</code>
-                        <span className="whitespace-nowrap text-xs font-bold text-accent group-hover:underline">{isOpen ? 'Ocultar detalle' : 'Ver detalle'}</span>
+                        <span className="whitespace-nowrap text-sm font-bold text-accent group-hover:underline">{isOpen ? 'Ocultar detalle' : 'Ver detalle'}</span>
                       </span>
                     </button>
                   </th>
@@ -86,21 +84,19 @@ export function InvoiceTable({ rows, rowStates, usdToVes: rate, disabled, canIss
                     <span className="block min-w-40 text-ink">{row.ownerName ?? '—'}</span>
                     <span className="text-xs text-ink-muted">Alícuota {formatPercent(row.aliquot)}</span>
                   </td>
-                  <td className="tabular whitespace-nowrap px-4 py-3 text-right font-bold">{formatUsd(b.monthTotal)}</td>
-                  <td className={`tabular whitespace-nowrap px-4 py-3 text-right ${b.previousDebt > 0 ? 'font-bold text-warning' : 'text-ink-muted'}`}>
-                    {b.previousDebt > 0 ? formatUsd(b.previousDebt) : '—'}
-                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <span className="tabular block font-bold">{formatUsd(b.totalDue)}</span>
-                    {rate !== null && <span className="tabular text-xs text-ink-muted">{formatVes(usdToVes(b.totalDue, rate))}</span>}
+                    <span className="tabular block text-lg font-bold">{formatUsd(b.totalDue)}</span>
+                    {rate !== null && <span className="tabular block text-xs text-ink-muted">{formatVes(usdToVes(b.totalDue, rate))}</span>}
+                    <span className="tabular block text-xs text-ink-muted">Este mes {formatUsd(b.monthTotal)}</span>
+                    {b.previousDebt > 0 && <span className="tabular block text-xs font-bold text-warning">+ deuda anterior {formatUsd(b.previousDebt)}</span>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col items-start gap-1">
                       <StatusBadge tone={state.phase === 'error' ? 'danger' : status.tone}>{state.phase === 'error' ? 'Error' : status.label}</StatusBadge>
                       {state.phase === 'error' && <span className="max-w-56 text-xs text-danger" role="alert">{state.message}</span>}
                       {row.payment?.status === 'partial' && <span className="tabular text-xs text-ink-muted">Pagado {formatUsd(row.payment.paid)} · falta {formatUsd(row.payment.outstanding)}</span>}
-                      {issued && row.invoice?.driveFileUrl && (
-                        <a href={row.invoice.driveFileUrl} target="_blank" rel="noopener" className="text-xs font-bold text-accent underline">Ver PDF</a>
+                      {issued && row.invoice && (
+                        <a href={adminInvoicePdfPath(row.invoice.id)} target="_blank" rel="noopener" className="text-xs font-bold text-accent underline">Ver PDF</a>
                       )}
                     </div>
                   </td>
@@ -114,7 +110,7 @@ export function InvoiceTable({ rows, rowStates, usdToVes: rate, disabled, canIss
                           disabled={disabled || !canIssue}
                           onClick={() => onGenerate(row.houseId)}
                         >
-                          {state.phase === 'working' ? 'Emitiendo…' : issued ? 'Regenerar' : 'Emitir'}
+                          {state.phase === 'working' ? 'Emitiendo…' : issued ? 'Volver a emitir' : 'Emitir recibo'}
                         </ActionButton>
                       )}
                       {issued && !paid && (
@@ -122,7 +118,7 @@ export function InvoiceTable({ rows, rowStates, usdToVes: rate, disabled, canIss
                           href={`/admin/${condominiumSlug}/casas/${row.houseId}?monto=${pendingAmount.toFixed(2)}#pagos`}
                           className="inline-flex min-h-10 items-center rounded-xl px-3 text-sm font-bold text-accent no-underline hover:bg-sunken"
                         >
-                          Registrar pago
+                          Anotar pago
                         </a>
                       )}
                       {paid && (
@@ -135,7 +131,7 @@ export function InvoiceTable({ rows, rowStates, usdToVes: rate, disabled, canIss
                 </tr>
                 {isOpen && (
                   <tr className="border-b border-line bg-canvas/30">
-                    <td colSpan={7} className="px-6 py-5">
+                    <td colSpan={5} className="px-6 py-5">
                       <BreakdownList breakdown={b} />
                     </td>
                   </tr>

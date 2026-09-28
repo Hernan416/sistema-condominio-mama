@@ -11,7 +11,6 @@ export interface InvoiceDto {
   id: string;
   amount: number; // USD, lo facturado en el mes
   status: InvoiceStatus;
-  driveFileUrl: string | null;
   generatedAt: string | null; // ISO
   paidAt: string | null; // ISO
 }

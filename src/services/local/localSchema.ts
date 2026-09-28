@@ -7,7 +7,7 @@ import type { BillingSheetRow, CondominiumRow, ExchangeRateRow, HouseDebtRow, Ho
  * Sube este número cuando cambie la forma del archivo. Si hay una migración registrada
  * (localMigrations.ts), se conservan los datos; si no, se regenera con datos de prueba.
  */
-export const LOCAL_SCHEMA_VERSION = 8;
+export const LOCAL_SCHEMA_VERSION = 9;
 
 export interface LocalHouseRecord extends HouseRow {
   pin_hash: string;

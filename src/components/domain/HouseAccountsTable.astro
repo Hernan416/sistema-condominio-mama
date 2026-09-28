@@ -16,7 +16,7 @@ const { slug, accounts, today } = Astro.props;
 const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted';
 ---
 
-<div class="overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+<div class="relative overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
   <table class="w-full min-w-[760px] text-base">
     <thead class="bg-canvas/60">
       <tr class="border-b border-line">
@@ -61,7 +61,7 @@ const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] te
               </td>
               <td class="px-4 py-3 text-right">
                 <a href={`/admin/${slug}/casas/${house.id}`} class="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-sm font-bold text-accent no-underline hover:bg-sunken">
-                  Abrir cuenta <Icon name="arrow-right" size={16} />
+                  Abrir casa <Icon name="arrow-right" size={16} />
                 </a>
               </td>
             </tr>

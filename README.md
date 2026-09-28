@@ -1,6 +1,6 @@
-# Portal Residencial (multi-condominio)
+# Portal MAGO Condominios (multi-condominio)
 
-Astro (SSR en Vercel) + Supabase + Google Drive. Un solo login para todos:
+Astro (SSR en Vercel) + Supabase. Solo datos relacionales: no se guardan archivos. Un solo login para todos:
 
 - **Residente** → escribe su usuario (ej. `3b-12`) y su PIN de 4 números → ve y descarga su factura, cuánto debe (USD y Bs.) y sus últimos pagos.
 - **Administrador** → escribe su correo y contraseña → panel con todos los condominios que gestiona.
@@ -12,20 +12,20 @@ Pensado para condominios de **Isla de Margarita, Venezuela**:
   - Un **cron de Vercel** (`vercel.json`) llama a `/api/cron/exchange-rate` todos los días a las 00:05 hora de Caracas (04:05 UTC). Requiere la variable `CRON_SECRET` en Vercel.
   - Si el cron no corrió, la primera visita del día consulta la API y la guarda.
   - Si la API falla, se usa la última tasa guardada y se reintenta como máximo cada 15 min. Si nunca hubo tasa, se muestran solo dólares.
-- Cada PDF imprime el monto en USD, su referencia en Bs. y la tasa usada con su fecha (queda guardada en la factura). El residente ve además el monto en Bs. a la tasa **de hoy**.
+- Cada PDF imprime el monto en USD, su referencia en Bs. y la tasa BCV del día de emisión con su fecha (queda guardada en el recibo). El residente ve además el monto en Bs. a la tasa **de hoy**.
 - Fechas y "mes actual" en hora de Caracas (Vercel corre en UTC).
 - Modo claro por defecto, con modo oscuro opcional (se recuerda en una cookie).
 
-Las facturas se guardan en `Raíz / Condominio / Año / 09 - Septiembre`.
+**Recibos sin archivos:** emitir un recibo guarda en la base su desglose, la tasa y la fecha. El PDF se dibuja al momento cada vez que el residente lo descarga o el panel lo abre (`/api/invoices/download`, `/api/admin/recibos/:id`), siempre idéntico porque sale de esos datos congelados.
 
-## Desarrollo local (sin Supabase ni Google)
+## Desarrollo local (sin Supabase)
 
 ```bash
 npm install
 npm run dev
 ```
 
-No hace falta `.env`. Al primer uso se crea `.local-data/db.json` con dos condominios de prueba (Manzana 3-A y 3-B, cuota de 30 USD). Sin internet, usa `EXCHANGE_RATE_PROVIDER=fixed` y `EXCHANGE_RATE_FIXED=855.66`. Los PDF se guardan en `.local-data/drive/<condominio>/<año>/<mes>/`. Para empezar de cero, borra `.local-data/`.
+No hace falta `.env`. Al primer uso se crea `.local-data/db.json` con dos condominios de prueba (Manzana 3-A y 3-B, cuota de 30 USD). Sin internet, usa `EXCHANGE_RATE_PROVIDER=fixed` y `EXCHANGE_RATE_FIXED=855.66`. Para empezar de cero, borra `.local-data/`.
 
 | Quién | Usuario | Clave |
 |---|---|---|
@@ -35,17 +35,15 @@ No hace falta `.env`. Al primer uso se crea `.local-data/db.json` con dos condom
 
 ## Panel del administrador
 
-Cada condominio tiene 7 pestañas:
+Organizado por tareas (pensado para una administradora con poca experiencia digital). Cada condominio tiene 5 secciones en la barra lateral:
 
-| Pestaña | Para qué |
+| Sección | Para qué |
 |---|---|
-| **Resumen** | Consolidado del mes elegido: facturado, cobrado (% de cobranza), gastos, saldo en caja, gráfico de 6 meses, cuentas por cobrar por antigüedad y casas con más deuda. |
-| **Facturas del mes** | Emitir o regenerar los recibos. Cada fila muestra si está pagado, con abono parcial o por cobrar, con acceso directo a "Registrar pago". |
-| **Relación de gastos** | Gastos del mes y personalización por casa (1 a 1 o varias casas a la vez). |
-| **Casas y cuentas** | Ficha de cada casa (propietario, cédula/RIF, teléfono, correo, inquilino, notas) y su estado de cuenta: recibos, deudas registradas, pagos y abonos. |
-| **Cobranza** | Historial de recibos (pagados, con abono, pendientes) y de pagos recibidos, con filtros por año y casa. |
-| **Alícuotas** | % de participación de cada casa y tipos de alícuota. |
-| **Datos del recibo** | Encabezado, forma de pago, valores de facturación y saldo inicial de caja. |
+| **Inicio** | "¿Qué desea hacer?" (anotar un pago, hacer los recibos, ver quién debe, ver una casa), lo que falta este mes y los números: facturado, cobrado, gastos, caja, gráfico de 6 meses y antigüedad de las deudas. |
+| **Recibos** | Dos pasos: 1) anotar los gastos del mes (con "casos especiales" por casa, 1 a 1 o varias a la vez) y 2) revisar y emitir los recibos. |
+| **Casas y pagos** | Ficha de cada casa: cuánto debe, anotar pagos o abonos, agregar deudas antiguas, datos del propietario e historial. |
+| **Historial** | Recibos y deudas (pagados, con abono, pendientes, con la fecha del último pago) y todos los pagos recibidos. |
+| **Ajustes** | Datos del recibo, saldo inicial de caja y alícuotas. |
 
 ### Pagos, abonos y deudas
 
@@ -73,27 +71,18 @@ Solo cambia en el `.env` (o en Vercel → Settings → Environment Variables):
 
 ```bash
 DATA_PROVIDER=supabase     # + SUPABASE_*
-STORAGE_PROVIDER=google    # + GOOGLE_*
 SESSION_SECRET=...         # obligatorio en producción
 ```
 
-Se pueden cambiar por separado (p. ej. Supabase + PDFs locales). Ningún archivo de código cambia: `src/services/container.ts` elige la implementación.
+Ningún archivo de código cambia: `src/services/container.ts` elige la implementación.
 
-1. **Supabase** → SQL Editor: ejecuta `supabase/migrations/0001_init.sql` y (solo en desarrollo) `supabase/seed.sql`. El script se puede volver a ejecutar sobre una base ya creada: agrega las tablas `payments` y `house_debts` y las columnas nuevas sin borrar datos.
+1. **Supabase** → SQL Editor: ejecuta `supabase/migrations/0001_init.sql` y (solo en desarrollo) `supabase/seed.sql`. El script se puede volver a ejecutar sobre una base ya creada: agrega las tablas `payments` y `house_debts` y las columnas nuevas sin borrar datos. Si la base se creó con la versión que usaba Google Drive, ejecuta también `supabase/migrations/0002_remove_file_storage.sql` (quita `drive_file_id` y `drive_file_url`).
 2. **Administradores**: créalos en Authentication → Users y dales acceso a sus condominios:
    ```sql
    insert into public.condominium_admins (user_id, condominium_id)
    select u.id, c.id from auth.users u, public.condominiums c
     where u.email = 'correo@ejemplo.com' and c.slug in ('manzana-3-a', 'manzana-3-b');
    ```
-3. **Google Drive** (OAuth2, cuenta Gmail de la administradora):
-   - Google Cloud Console → habilita *Google Drive API* → crea credenciales *OAuth client ID (Web)*.
-   - Obtén un refresh token con scope `https://www.googleapis.com/auth/drive` (p. ej. en OAuth 2.0 Playground usando tus propias credenciales).
-   - Crea la carpeta "Facturas" en Drive y copia su ID a `GOOGLE_DRIVE_ROOT_FOLDER_ID`.
-   - Publica la app OAuth en "Producción" (en modo "Testing" el refresh token caduca a los 7 días).
-
-> ¿Por qué no una Service Account? Desde 2024 las service accounts no tienen cuota en Drive personal; solo funcionan con Unidades Compartidas (Workspace).
-
 ## Arquitectura
 
 ```
@@ -106,8 +95,7 @@ src/
 ├─ services/
 │  ├─ contracts.ts   Interfaces (DIP).
 │  ├─ container.ts   Composition root: único sitio con implementaciones concretas.
-│  ├─ storage/GoogleDriveFacade.ts   FACADE Drive.
-│  ├─ pdf/PdfInvoiceFacade.ts        FACADE pdf-lib.
+│  ├─ pdf/PdfInvoiceFacade.ts        FACADE pdf-lib (PDF al momento, sin guardar archivos).
 │  ├─ repositories/  Supabase → dominio (vía adapters).
 │  ├─ invoices/InvoiceService.ts     Emisión de recibos.
 │  ├─ billing/BillingService.ts      Relación de gastos → recibos.
