@@ -20,7 +20,7 @@ export interface InvoiceRowDto {
   houseId: string;
   houseNumber: string;
   /** Usuario con el que entra el residente (la administradora se lo comunica). */
-  username: string;
+  username: string | null;
   ownerName: string | null;
   aliquot: number;
   /** InvoiceBreakdown ya es JSON puro (números y textos). */
@@ -46,7 +46,7 @@ export interface BillingSheetDto {
 export interface UnitDto {
   id: string;
   number: string;
-  username: string;
+  username: string | null;
   ownerName: string | null;
   ownerDocument: string | null;
   ownerEmail: string | null;

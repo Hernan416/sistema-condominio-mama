@@ -1,6 +1,6 @@
 ---
-// Un solo formulario para residentes (usuario + PIN) y administradores (correo + contraseña).
-// Funciona sin JavaScript; el script solo mejora: teclado numérico para el PIN y "mostrar".
+// Un solo formulario para todos: usuario + PIN (la administradora y los residentes).
+// Funciona sin JavaScript; el script solo agrega el botón "mostrar PIN".
 import Alert from '@/components/ui/Alert.astro';
 import Button from '@/components/ui/Button.astro';
 import Icon from '@/components/ui/Icon.astro';
@@ -16,9 +16,9 @@ interface Props {
 const { error = null, identifier = '' } = Astro.props;
 
 const messages: Record<LoginError, { tone: 'danger' | 'warning'; text: string }> = {
-  invalid: { tone: 'danger', text: 'El usuario o la clave no coinciden. Revíselos e intente de nuevo.' },
+  invalid: { tone: 'danger', text: 'El usuario o el PIN no coinciden. Revíselos e intente de nuevo.' },
   locked: { tone: 'warning', text: 'Por seguridad, el acceso está pausado 15 minutos. Intente más tarde o llame a la administración.' },
-  format: { tone: 'danger', text: 'Escriba su usuario (o correo) y su clave.' },
+  format: { tone: 'danger', text: 'Escriba su usuario y su PIN.' },
   server: { tone: 'danger', text: 'No pudimos entrar en este momento. Intente de nuevo en unos minutos.' },
   expired: { tone: 'warning', text: 'Su sesión terminó. Vuelva a entrar.' },
 };
@@ -32,7 +32,7 @@ const invalid = error === 'invalid' || error === 'format';
     id="identifier"
     name="identifier"
     label="Usuario"
-    hint="Residentes: su usuario (ej. 3b-12). Administradores: su correo."
+    hint="Ejemplo: 3b-12"
     value={identifier}
     autocomplete="username"
     autocapitalize="none"
@@ -47,10 +47,11 @@ const invalid = error === 'invalid' || error === 'format';
     id="secret"
     name="secret"
     type="password"
-    label="Clave"
-    hint="Residentes: su PIN de 4 números."
+    label="PIN"
+    hint="Sus 4 números."
     autocomplete="current-password"
-    maxlength={128}
+    inputmode="numeric"
+    maxlength={4}
     required
     invalid={invalid}
     data-secret
@@ -59,7 +60,7 @@ const invalid = error === 'invalid' || error === 'format';
       slot="trailing"
       type="button"
       class="inline-flex size-12 cursor-pointer items-center justify-center rounded-[0.625rem] text-ink-muted transition-colors hover:bg-sunken hover:text-ink"
-      aria-label="Mostrar clave"
+      aria-label="Mostrar PIN"
       aria-pressed="false"
       data-reveal
     >
@@ -73,29 +74,20 @@ const invalid = error === 'invalid' || error === 'format';
     <Icon name="arrow-right" size={24} class="transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover:translate-x-1" />
   </Button>
 
-  <p class="text-lg text-ink-muted">¿Olvidó su clave? Comuníquese con la administración de su conjunto.</p>
+  <p class="text-lg text-ink-muted">¿Olvidó su PIN? Comuníquese con la administración de su conjunto.</p>
 </form>
 
 <script>
   for (const form of document.querySelectorAll<HTMLFormElement>('[data-login-form]')) {
-    const identifier = form.querySelector<HTMLInputElement>('[data-identifier]');
     const secret = form.querySelector<HTMLInputElement>('[data-secret]');
     const reveal = form.querySelector<HTMLButtonElement>('[data-reveal]');
-    if (!identifier || !secret) continue;
-
-    // Sin "@" es un residente: el celular muestra el teclado numérico para el PIN.
-    const syncKeyboard = () => {
-      const isResident = identifier.value.trim() !== '' && !identifier.value.includes('@');
-      secret.inputMode = isResident ? 'numeric' : 'text';
-    };
-    identifier.addEventListener('input', syncKeyboard);
-    syncKeyboard();
+    if (!secret) continue;
 
     reveal?.addEventListener('click', () => {
       const show = secret.type === 'password';
       secret.type = show ? 'text' : 'password';
       reveal.setAttribute('aria-pressed', String(show));
-      reveal.setAttribute('aria-label', show ? 'Ocultar clave' : 'Mostrar clave');
+      reveal.setAttribute('aria-label', show ? 'Ocultar PIN' : 'Mostrar PIN');
       reveal.querySelector('.reveal-show')?.classList.toggle('hidden', show);
       reveal.querySelector('.reveal-hide')?.classList.toggle('hidden', !show);
       secret.focus();

@@ -4,7 +4,6 @@
 import type { AstroCookies } from 'astro';
 import { config } from '@/services/config';
 import type {
-  AdminAuthenticator,
   BillingSheetRepository,
   CondominiumRepository,
   ExchangeRateProvider,
@@ -13,7 +12,7 @@ import type {
   HouseRepository,
   InvoiceRepository,
   PaymentRepository,
-  PinVerifier,
+  UserRepository,
 } from '@/services/contracts';
 import { InvoiceService } from '@/services/invoices/InvoiceService';
 import { CondominiumService } from '@/services/condominiums/CondominiumService';
@@ -33,8 +32,7 @@ import { LocalCondominiumRepository } from '@/services/repositories/LocalCondomi
 import { LocalExchangeRateRepository } from '@/services/repositories/LocalExchangeRateRepository';
 import { LocalHouseRepository } from '@/services/repositories/LocalHouseRepository';
 import { LocalInvoiceRepository } from '@/services/repositories/LocalInvoiceRepository';
-import { LocalPinVerifier } from '@/services/auth/LocalPinVerifier';
-import { LocalAdminAuthenticator } from '@/services/auth/LocalAdminAuthenticator';
+import { LocalUserRepository } from '@/services/repositories/LocalUserRepository';
 // Nube
 import { getServiceClient } from '@/services/supabase/clients';
 import { SupabaseBillingSheetRepository } from '@/services/repositories/SupabaseBillingSheetRepository';
@@ -43,8 +41,7 @@ import { SupabaseCondominiumRepository } from '@/services/repositories/SupabaseC
 import { SupabaseExchangeRateRepository } from '@/services/repositories/SupabaseExchangeRateRepository';
 import { SupabaseHouseRepository } from '@/services/repositories/SupabaseHouseRepository';
 import { SupabaseInvoiceRepository } from '@/services/repositories/SupabaseInvoiceRepository';
-import { SupabasePinVerifier } from '@/services/auth/SupabasePinVerifier';
-import { SupabaseAdminAuthenticator } from '@/services/auth/SupabaseAdminAuthenticator';
+import { SupabaseUserRepository } from '@/services/repositories/SupabaseUserRepository';
 
 interface DataLayer {
   condominiums: CondominiumRepository;
@@ -54,8 +51,7 @@ interface DataLayer {
   payments: PaymentRepository;
   houseDebts: HouseDebtRepository;
   exchangeRates: ExchangeRateRepository;
-  pins: PinVerifier;
-  adminAuth: (request: Request, cookies: AstroCookies) => AdminAuthenticator;
+  users: UserRepository;
 }
 
 // ─── Fábricas por proveedor ────────────────────────────────────────────────────
@@ -70,9 +66,7 @@ const dataProviders: Record<typeof config.dataProvider, () => DataLayer> = {
       payments: new LocalPaymentRepository(store),
       houseDebts: new LocalHouseDebtRepository(store),
       exchangeRates: new LocalExchangeRateRepository(store),
-      pins: new LocalPinVerifier(store),
-      adminAuth: (_request, cookies) =>
-        new LocalAdminAuthenticator(cookies, { email: config.local.adminEmail, password: config.local.adminPassword, name: config.local.adminName }),
+      users: new LocalUserRepository(store),
     };
   },
   supabase() {
@@ -85,8 +79,7 @@ const dataProviders: Record<typeof config.dataProvider, () => DataLayer> = {
       payments: new SupabasePaymentRepository(db),
       houseDebts: new SupabaseHouseDebtRepository(db),
       exchangeRates: new SupabaseExchangeRateRepository(db),
-      pins: new SupabasePinVerifier(db),
-      adminAuth: (request, cookies) => new SupabaseAdminAuthenticator(request, cookies, db),
+      users: new SupabaseUserRepository(db),
     };
   },
 };
@@ -176,12 +169,10 @@ export function getMetricsService(): MetricsService {
   return metricsService;
 }
 
-export function getAdminAuthenticator(request: Request, cookies: AstroCookies): AdminAuthenticator {
-  return dataLayer().adminAuth(request, cookies);
-}
-
-export function getLoginService(request: Request, cookies: AstroCookies): LoginService {
-  return new LoginService(getAdminAuthenticator(request, cookies), dataLayer().pins, cookies);
+/** Login único (usuario + PIN) contra la tabla de usuarios. */
+export function getLoginService(cookies: AstroCookies): LoginService {
+  const { users, houses } = dataLayer();
+  return new LoginService(users, houses, cookies);
 }
 
 export function isLocalDataMode(): boolean {

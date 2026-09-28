@@ -20,7 +20,7 @@ const [{ sheet, origin }, units, full] = await Promise.all([
 ]);
 ---
 
-<AdminLayout title={`Gastos · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="gastos">
+<AdminLayout title={`Gastos · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="gastos">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}

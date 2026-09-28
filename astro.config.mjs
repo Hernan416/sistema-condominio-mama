@@ -80,9 +80,6 @@ export default defineConfig({
 
       // Modo local
       LOCAL_DATA_DIR: envField.string({ context: 'server', access: 'secret', default: '.local-data' }),
-      LOCAL_ADMIN_EMAIL: envField.string({ context: 'server', access: 'secret', default: 'admin@local.test' }),
-      LOCAL_ADMIN_NAME: envField.string({ context: 'server', access: 'secret', default: 'María González' }),
-      LOCAL_ADMIN_PASSWORD: envField.string({ context: 'server', access: 'secret', default: 'admin1234' }),
 
       // Supabase (DATA_PROVIDER=supabase)
       SUPABASE_URL: envField.string({ context: 'server', access: 'secret', optional: true }),

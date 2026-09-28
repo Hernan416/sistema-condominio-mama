@@ -10,14 +10,14 @@ import { adminSections, sectionOf, type CondominiumTab } from '@/utils/adminSect
 
 interface Props {
   appName: string;
-  adminEmail: string | null;
+  adminUsername: string | null;
   adminName?: string | null;
   condominiums: Condominium[];
   activeSlug: string | null;
   activeTab?: CondominiumTab | null;
 }
 
-const { appName, adminEmail, adminName = null, condominiums, activeSlug, activeTab = null } = Astro.props;
+const { appName, adminUsername, adminName = null, condominiums, activeSlug, activeTab = null } = Astro.props;
 const onOverview = activeSlug === null;
 const activeSection = activeTab ? sectionOf(activeTab) : null;
 
@@ -89,7 +89,7 @@ const itemClass = (active: boolean) =>
 
     <div class="hidden flex-col gap-1 border-t border-night-line pt-5 lg:flex">
       {adminName && <p class="truncate px-3 text-base font-bold text-night-ink">{adminName}</p>}
-      {adminEmail && <p class="mb-1 truncate px-3 text-sm text-night-muted">{adminEmail}</p>}
+      {adminUsername && <p class="mb-1 truncate px-3 text-sm text-night-muted">Usuario: {adminUsername}</p>}
       <ThemeToggle tone="night" showLabel class="justify-start !rounded-xl !px-3" />
       <form method="post" action="/api/auth/logout">
         <button type="submit" class={itemClass(false) + ' w-full cursor-pointer'}>

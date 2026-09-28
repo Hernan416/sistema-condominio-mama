@@ -36,7 +36,7 @@ const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] te
               <th scope="row" class="px-4 py-3 text-left">
                 <a href={`/admin/${slug}/casas/${house.id}`} class="flex items-center gap-3 no-underline">
                   <span class="font-display tabular inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-sunken px-2 text-lg font-semibold text-ink">{house.number}</span>
-                  <code class="whitespace-nowrap text-sm font-normal text-ink-muted">{house.username}</code>
+                  <code class="whitespace-nowrap text-sm font-normal text-ink-muted">{house.username ?? 'sin usuario'}</code>
                 </a>
               </th>
               <td class="px-4 py-3">

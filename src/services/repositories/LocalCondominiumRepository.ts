@@ -20,7 +20,7 @@ export class LocalCondominiumRepository implements CondominiumRepository {
     return row ? supabaseCondominiumToDomain(row) : null;
   }
 
-  async listForAdmin(_adminUserId: string): Promise<Condominium[]> {
+  async listAll(): Promise<Condominium[]> {
     const { condominiums } = await this.store.read();
     return condominiums.map(supabaseCondominiumToDomain).sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }

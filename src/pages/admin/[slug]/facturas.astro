@@ -16,7 +16,7 @@ const period = periodFromQuery(Astro.url.searchParams);
 const { units, origin } = await getBillingService().preview(condominium, period);
 ---
 
-<AdminLayout title={`Facturas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="facturas">
+<AdminLayout title={`Facturas · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="facturas">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}

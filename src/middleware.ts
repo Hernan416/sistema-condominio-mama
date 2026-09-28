@@ -1,6 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { readResidentSession } from '@/services/auth/residentSession';
-import { getAdminAuthenticator } from '@/services/container';
+import { readAdminSession } from '@/services/auth/adminSession';
 import { jsonError } from '@/utils/http';
 
 // /admin/login solo redirige a "/" (el login es único).
@@ -15,8 +15,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.resident = null;
   context.locals.admin = null;
 
-  const loadAdmin = async () =>
-    (context.locals.admin = await getAdminAuthenticator(context.request, context.cookies).currentAdmin());
+  const loadAdmin = async () => (context.locals.admin = await readAdminSession(context.cookies));
   const loadResident = async () => (context.locals.resident = await readResidentSession(context.cookies));
 
   // Login: quien ya tiene sesión va directo a su pantalla.

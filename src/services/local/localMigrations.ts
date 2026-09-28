@@ -1,6 +1,7 @@
 // Migraciones del archivo local que CONSERVAN los datos. La clave es la versión de origen.
 import { randomUUID } from 'node:crypto';
-import { demoBillingSheet, demoCondominiumSettings } from '@/services/local/localSeed';
+import { DEMO_ADMIN, demoBillingSheet, demoCondominiumSettings, userRecord } from '@/services/local/localSeed';
+import { hashPin } from '@/services/auth/pinHasher';
 import type { LocalDatabase } from '@/services/local/localSchema';
 import { equalAliquots } from '@/utils/billingCalculator';
 import { currentPeriod } from '@/utils/months';
@@ -96,5 +97,31 @@ export const MIGRATIONS: Record<number, (db: Record<string, unknown>) => void> =
         exchange_rate_source: inv.exchange_rate == null ? null : 'BCV',
       });
     }
+  },
+  // v10 → v11: tabla de usuarios (administradora y residentes, todos con usuario + PIN).
+  // Cada casa pasa su usuario, su PIN (mismo hash) y sus intentos a un usuario residente.
+  10: (raw) => {
+    const db = raw as unknown as LocalDatabase & { houses: Record<string, unknown>[] };
+    db.users = [];
+    for (const h of db.houses) {
+      if (typeof h.username === 'string' && typeof h.pin_hash === 'string') {
+        db.users.push(
+          userRecord({
+            username: h.username,
+            pin_hash: h.pin_hash,
+            role: 'resident',
+            display_name: (h.owner_name as string | null) ?? null,
+            house_id: h.id as string,
+            failed_attempts: Number(h.failed_attempts ?? 0),
+            locked_until: (h.locked_until as string | null) ?? null,
+          }),
+        );
+      }
+      delete h.username;
+      delete h.pin_hash;
+      delete h.failed_attempts;
+      delete h.locked_until;
+    }
+    db.users.push(userRecord({ username: DEMO_ADMIN.username, pin_hash: hashPin(DEMO_ADMIN.pin), role: 'admin', display_name: DEMO_ADMIN.name, house_id: null }));
   },
 };

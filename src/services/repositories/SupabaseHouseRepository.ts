@@ -4,7 +4,7 @@ import type { HouseRow } from '@/types/database';
 import type { House } from '@/types/domain';
 import type { HouseRepository } from '@/services/contracts';
 
-const HOUSE_COLUMNS = 'id, condominium_id, number, username, owner_name, owner_document, owner_email, aliquot, aliquot_category_id, owner_phone, occupancy, occupant_name, occupant_phone, notes';
+const HOUSE_COLUMNS = 'id, condominium_id, number, owner_name, owner_document, owner_email, aliquot, aliquot_category_id, owner_phone, occupancy, occupant_name, occupant_phone, notes, users(username, role)';
 
 export class SupabaseHouseRepository implements HouseRepository {
   constructor(private readonly db: SupabaseClient) {}

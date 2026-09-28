@@ -1,7 +1,6 @@
 // Contratos (Dependency Inversion). La lógica de negocio depende de estas interfaces,
 // nunca de Supabase, el disco local o pdf-lib directamente.
 import type {
-  AdminSession,
   BillingPeriod,
   Condominium,
   CondominiumSettings,
@@ -9,7 +8,7 @@ import type {
   ExchangeRate,
   House,
   Invoice,
-  PinVerificationResult,
+  UserCredentials,
   ReceiptHeaderSettings,
 } from '@/types/domain';
 import type { BillingSheet, InvoiceBreakdown } from '@/types/billing';
@@ -21,18 +20,11 @@ import type { NewDebt, NewPayment } from '@/adapters/accountAdapter';
 import type { PreviousDebt } from '@/utils/billingCalculator';
 import type { ChargeState } from '@/utils/ledger';
 
-/** Autenticación de administradores (Supabase Auth o credenciales locales). */
-export interface AdminAuthenticator {
-  signIn(email: string, password: string): Promise<AdminSession | null>;
-  currentAdmin(): Promise<AdminSession | null>;
-  signOut(): Promise<void>;
-}
-
 export interface CondominiumRepository {
   findById(id: string): Promise<Condominium | null>;
   findBySlug(slug: string): Promise<Condominium | null>;
-  /** Condominios que ese administrador puede gestionar. */
-  listForAdmin(adminUserId: string): Promise<Condominium[]>;
+  /** Todos los condominios (la administradora los gestiona todos). */
+  listAll(): Promise<Condominium[]>;
   findWithSettings(id: string): Promise<CondominiumWithSettings | null>;
   update(id: string, update: { name: string; city: string | null; settings: CondominiumSettings }): Promise<CondominiumWithSettings>;
   saveAliquotScheme(id: string, scheme: AliquotScheme): Promise<void>;
@@ -107,8 +99,11 @@ export interface CurrentExchangeRate {
   current(): Promise<ExchangeRate | null>;
 }
 
-export interface PinVerifier {
-  verify(username: string, pin: string): Promise<PinVerificationResult>;
+/** Usuarios (administradora y residentes) que entran con usuario + PIN. */
+export interface UserRepository {
+  findByUsername(username: string): Promise<UserCredentials | null>;
+  /** Guarda el contador de intentos fallidos y el bloqueo temporal. */
+  saveAttempts(userId: string, failedAttempts: number, lockedUntil: Date | null): Promise<void>;
 }
 
 export interface InvoiceDocumentData {

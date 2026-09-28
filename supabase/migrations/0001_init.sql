@@ -6,14 +6,14 @@
 --   condominiums ─┬─< houses ─┬─< invoices      (recibos mensuales emitidos)
 --                 │           ├─< house_debts   (deudas anteriores al sistema / cargos sueltos)
 --                 │           └─< payments      (abonos y pagos; se aplican FIFO a lo más viejo)
---                 └─< condominium_admins >── auth.users
+--   users (admin | resident) ──> houses          (el residente pertenece a una casa)
 --   * El estado "pagado" de un recibo NO se guarda: se calcula del libro de pagos.
---   * Un residente entra con `houses.username` (único en todo el sistema) + PIN.
---   * Un administrador (Supabase Auth, email) puede gestionar uno o varios condominios.
+--   * TODOS entran con usuario + PIN (tabla users). El rol decide: admin → panel (todos los
+--     condominios), resident → su casa. Sistema cerrado: sin correo ni Supabase Auth.
 -- Seguridad:
---   * El PIN se guarda como `pin_hash` (bcrypt vía pgcrypto), nunca en texto plano.
+--   * El PIN se guarda como `pin_hash` (scrypt, lo calcula la app), nunca en texto plano.
+--     La app verifica el PIN y lleva el bloqueo por intentos (igual en local y en Supabase).
 --   * RLS activado SIN políticas para anon/authenticated: solo el servidor (service_role) accede.
---   * `verify_house_pin` verifica y aplica el bloqueo por intentos de forma atómica.
 -- ============================================================================
 
 create extension if not exists pgcrypto with schema extensions;
@@ -53,9 +53,6 @@ create table if not exists public.houses (
   id               uuid primary key default gen_random_uuid(),
   condominium_id   uuid not null references public.condominiums (id) on delete cascade,
   number           text not null check (length(trim(number)) > 0),
-  -- Usuario de acceso del residente, único global (ej. "3b-12"). Sin "@": eso es un admin.
-  username         text not null check (username ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
-  pin_hash         text not null,
   owner_name       text,
   owner_document   text,                -- cédula o RIF del propietario
   owner_email      text,
@@ -69,13 +66,10 @@ create table if not exists public.houses (
   aliquot          numeric(9, 4) not null default 0 check (aliquot >= 0 and aliquot <= 100),
   -- Tipo de alícuota asignado (id dentro de condominiums.aliquot_scheme); null = personalizada.
   aliquot_category_id  text,
-  failed_attempts  smallint not null default 0,
-  locked_until     timestamptz,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
 
-create unique index if not exists houses_username_unique on public.houses (username);
 -- "12a" y " 12A " son la misma casa dentro de un condominio.
 create unique index if not exists houses_number_per_condo_unique
   on public.houses (condominium_id, upper(trim(number)));
@@ -180,13 +174,12 @@ create table if not exists public.exchange_rates (
   fetched_at    timestamptz not null default now()
 );
 
--- ─── condominium_admins ─────────────────────────────────────────────────────
-create table if not exists public.condominium_admins (
-  user_id         uuid not null references auth.users (id) on delete cascade,
-  condominium_id  uuid not null references public.condominiums (id) on delete cascade,
-  created_at      timestamptz not null default now(),
-  primary key (user_id, condominium_id)
-);
+-- ─── users ──────────────────────────────────────────────────────────────────
+-- Administradora y residentes. Todos entran con usuario + PIN.
+create table if not exists public.users (
+  id               uuid primary key default gen_random_uuid(),
+  -- Usuario de acceso, único (ej. "maria", "3b-12"): minúsculas, números y guiones.
+  username         text not null unique check (username ~ '^[a-z0-9]+(-[a-z0-9]+)*
 
 -- ─── Columnas agregadas después (idempotente, para bases ya creadas) ─────────
 alter table public.condominiums add column if not exists opening_balance numeric(14, 2) not null default 0;
@@ -220,90 +213,8 @@ create trigger invoices_touch before update on public.invoices
 alter table public.condominiums       enable row level security;
 alter table public.houses             enable row level security;
 alter table public.invoices           enable row level security;
-alter table public.condominium_admins enable row level security;
+alter table public.users              enable row level security;
 alter table public.exchange_rates     enable row level security;
 alter table public.billing_sheets     enable row level security;
 alter table public.house_debts        enable row level security;
 alter table public.payments           enable row level security;
-
--- ─── Funciones de PIN ───────────────────────────────────────────────────────
-create or replace function public.set_house_pin(p_house_id uuid, p_pin text)
-returns void
-language plpgsql
-security definer
-set search_path = public, extensions
-as $$
-begin
-  if p_pin !~ '^[0-9]{4}$' then
-    raise exception 'El PIN debe tener exactamente 4 dígitos';
-  end if;
-
-  update public.houses
-     set pin_hash = crypt(p_pin, gen_salt('bf', 10)),
-         failed_attempts = 0,
-         locked_until = null
-   where id = p_house_id;
-end $$;
-
--- Verifica usuario + PIN con bloqueo progresivo. `status`:
---   'ok'      → credenciales válidas
---   'invalid' → usuario inexistente o PIN incorrecto (misma respuesta: no revela cuál)
---   'locked'  → demasiados intentos; `locked_until` indica hasta cuándo
-create or replace function public.verify_house_pin(p_username text, p_pin text)
-returns table (
-  status text,
-  house_id uuid,
-  house_number text,
-  condominium_id uuid,
-  locked_until timestamptz
-)
-language plpgsql
-security definer
-set search_path = public, extensions
-as $$
-#variable_conflict use_column
-declare
-  v_house        public.houses%rowtype;
-  v_max_attempts constant int := 5;
-  v_lock_window  constant interval := interval '15 minutes';
-begin
-  select * into v_house
-    from public.houses h
-   where h.username = lower(trim(p_username))
-   for update;
-
-  if not found then
-    -- Mismo costo que un bcrypt real para no revelar qué usuarios existen.
-    perform crypt(p_pin, gen_salt('bf', 10));
-    return query select 'invalid'::text, null::uuid, null::text, null::uuid, null::timestamptz;
-    return;
-  end if;
-
-  if v_house.locked_until is not null and v_house.locked_until > now() then
-    return query select 'locked'::text, null::uuid, null::text, null::uuid, v_house.locked_until;
-    return;
-  end if;
-
-  if v_house.pin_hash = crypt(p_pin, v_house.pin_hash) then
-    update public.houses set failed_attempts = 0, locked_until = null where id = v_house.id;
-    return query select 'ok'::text, v_house.id, v_house.number, v_house.condominium_id, null::timestamptz;
-    return;
-  end if;
-
-  update public.houses
-     set failed_attempts = case when failed_attempts + 1 >= v_max_attempts then 0 else failed_attempts + 1 end,
-         locked_until    = case when failed_attempts + 1 >= v_max_attempts then now() + v_lock_window else null end
-   where id = v_house.id
-  returning houses.locked_until into v_house.locked_until;
-
-  if v_house.locked_until is not null then
-    return query select 'locked'::text, null::uuid, null::text, null::uuid, v_house.locked_until;
-  else
-    return query select 'invalid'::text, null::uuid, null::text, null::uuid, null::timestamptz;
-  end if;
-end $$;
-
-revoke all on function public.set_house_pin(uuid, text)    from public, anon, authenticated;
-revoke all on function public.verify_house_pin(text, text) from public, anon, authenticated;
-grant execute on function public.set_house_pin(uuid, text)    to service_role;
-grant execute on function public.verify_house_pin(text, text) to service_role;

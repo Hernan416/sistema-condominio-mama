@@ -15,7 +15,7 @@ const saved = Astro.url.searchParams.get('guardado') === '1';
 const error = Astro.url.searchParams.get('error')?.slice(0, 200) ?? null;
 ---
 
-<AdminLayout title={`Datos · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="datos">
+<AdminLayout title={`Datos · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="datos">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}

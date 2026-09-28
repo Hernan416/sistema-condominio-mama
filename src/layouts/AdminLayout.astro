@@ -7,19 +7,19 @@ import type { CondominiumTab } from '@/utils/adminSections';
 interface Props {
   title: string;
   appName: string;
-  adminEmail: string | null;
+  adminUsername: string | null;
   condominiums: Condominium[];
   activeSlug?: string | null;
   /** Pantalla actual dentro del condominio (marca la sección en el menú). */
   activeTab?: CondominiumTab | null;
 }
 
-const { title, appName, adminEmail, condominiums, activeSlug = null, activeTab = null } = Astro.props;
+const { title, appName, adminUsername, condominiums, activeSlug = null, activeTab = null } = Astro.props;
 ---
 
 <BaseLayout title={`${title} · ${appName}`}>
   <div class="admin-scale lg:grid lg:min-h-dvh lg:grid-cols-[14.5rem_minmax(0,1fr)]">
-    <AdminNav appName={appName} adminEmail={adminEmail} adminName={Astro.locals.admin?.name ?? null} condominiums={condominiums} activeSlug={activeSlug} activeTab={activeTab} />
+    <AdminNav appName={appName} adminUsername={adminUsername} adminName={Astro.locals.admin?.name ?? null} condominiums={condominiums} activeSlug={activeSlug} activeTab={activeTab} />
     <main class="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <div class="mx-auto max-w-[76rem] animate-rise">
         <slot />

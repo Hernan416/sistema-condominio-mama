@@ -23,7 +23,6 @@ export interface HouseRow {
   id: string;
   condominium_id: string;
   number: string;
-  username: string;
   owner_name: string | null;
   owner_document: string | null;
   owner_email: string | null;
@@ -34,6 +33,22 @@ export interface HouseRow {
   occupant_name?: string | null;
   occupant_phone?: string | null;
   notes?: string | null;
+  /** Join opcional con sus usuarios (el usuario del residente se muestra en el panel). */
+  users?: { username: string; role: string }[] | null;
+}
+
+/** Usuarios del sistema: administradora y residentes. Entran con usuario + PIN. */
+export interface UserRow {
+  id: string;
+  username: string;
+  pin_hash: string;
+  role: 'admin' | 'resident';
+  display_name: string | null;
+  /** Casa del residente (null para administradores). */
+  house_id: string | null;
+  failed_attempts: number;
+  locked_until: string | null;
+  created_at: string;
 }
 
 export interface PaymentRow {
@@ -116,10 +131,3 @@ export interface BillingSheetRow {
   updated_at: string | null;
 }
 
-export interface VerifyPinRow {
-  status: 'ok' | 'invalid' | 'locked';
-  house_id: string | null;
-  house_number: string | null;
-  condominium_id: string | null;
-  locked_until: string | null;
-}

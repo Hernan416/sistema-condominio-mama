@@ -2,18 +2,6 @@ export function isValidPin(pin: string): boolean {
   return /^\d{4}$/.test(pin);
 }
 
-export type IdentifierKind = 'email' | 'username' | 'invalid';
-
-/**
- * Login unificado: un correo es un administrador; cualquier otro usuario es un residente.
- * (Los usuarios de residentes nunca contienen "@": lo impide el CHECK de la base.)
- */
-export function classifyIdentifier(raw: string): IdentifierKind {
-  const value = raw.trim();
-  if (value.includes('@')) return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'email' : 'invalid';
-  return isValidUsername(value) ? 'username' : 'invalid';
-}
-
 export function normalizeUsername(raw: string): string {
   return raw.trim().toLowerCase();
 }

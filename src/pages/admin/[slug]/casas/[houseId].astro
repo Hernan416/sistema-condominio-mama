@@ -45,7 +45,7 @@ const lastPayment = account.payments[0] ?? null;
 const date = (iso: string) => formatDateVe(new Date(`${iso}T12:00:00-04:00`));
 ---
 
-<AdminLayout title={`Casa ${house.number} · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="casas">
+<AdminLayout title={`Casa ${house.number} · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="casas">
   <CondominiumHeader
     name={condominium.name}
     title={`Casa ${house.number}`}
@@ -112,7 +112,7 @@ const date = (iso: string) => formatDateVe(new Date(`${iso}T12:00:00-04:00`));
       <Disclosure id="deudas" icon="plus" title="Agregar una deuda antigua" subtitle="Deudas de antes de usar el sistema, multas o reparaciones que esta casa debe.">
         <DebtForm action={`${base}/deudas`} today={today} />
       </Disclosure>
-      <Disclosure id="datos" icon="edit" title="Cambiar los datos de la casa" subtitle={`Dueño, cédula, teléfono, correo e inquilino. Usuario del vecino: ${house.username}`}>
+      <Disclosure id="datos" icon="edit" title="Cambiar los datos de la casa" subtitle={`Dueño, cédula, teléfono, correo e inquilino. Usuario del vecino: ${house.username ?? 'sin usuario'}`}>
         <HouseProfileForm action={`${base}/perfil`} house={house} />
       </Disclosure>
     </div>

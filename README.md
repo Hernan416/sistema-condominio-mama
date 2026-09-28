@@ -1,9 +1,11 @@
 # Portal MAGO Condominios (multi-condominio)
 
-Astro (SSR en Vercel) + Supabase. Solo datos relacionales: no se guardan archivos. Un solo login para todos:
+Astro (SSR en Vercel) + Supabase. Solo datos relacionales: no se guardan archivos. Un solo login para todos: **usuario + PIN de 4 números** (tabla `users`, con rol `admin` o `resident`):
 
-- **Residente** → escribe su usuario (ej. `3b-12`) y su PIN de 4 números → ve y descarga su factura, cuánto debe (USD y Bs.) y sus últimos pagos.
-- **Administrador** → escribe su correo y contraseña → panel con todos los condominios que gestiona.
+- **Administradora** (rol `admin`) → panel con todos los condominios.
+- **Residente** (rol `resident`, ligado a su casa) → ve y descarga sus recibos, cuánto debe (USD y Bs.), su historial y sus pagos.
+
+Sistema cerrado: sin correo ni Supabase Auth. El PIN se guarda cifrado (scrypt, lo calcula la app) y tras 5 PIN equivocados seguidos el usuario queda pausado 15 minutos. Funciona igual en local y en Supabase, así que los PIN se mudan tal cual.
 
 Pensado para condominios de **Isla de Margarita, Venezuela**:
 
@@ -27,11 +29,13 @@ npm run dev
 
 No hace falta `.env`. Al primer uso se crea `.local-data/db.json` con dos condominios de prueba (Manzana 3-A y 3-B, cuota de 30 USD). Sin internet, usa `EXCHANGE_RATE_PROVIDER=fixed` y `EXCHANGE_RATE_FIXED=855.66`. Para empezar de cero, borra `.local-data/`.
 
-| Quién | Usuario | Clave |
+| Quién | Usuario | PIN |
 |---|---|---|
-| Administrador (todos los condominios) | `admin@local.test` | `admin1234` |
+| Administradora María González (todos los condominios) | `maria` | `2508` |
 | Residentes de Manzana 3-A | `3a-1` … `3a-12` | `1234` |
 | Residentes de Manzana 3-B | `3b-1` … `3b-12` | `1234` |
+
+> Son PIN de prueba: cámbielos antes de usar el sistema con datos reales.
 
 ## Panel del administrador
 
@@ -77,12 +81,8 @@ SESSION_SECRET=...         # obligatorio en producción
 Ningún archivo de código cambia: `src/services/container.ts` elige la implementación.
 
 1. **Supabase** → SQL Editor: ejecuta `supabase/migrations/0001_init.sql` y (solo en desarrollo) `supabase/seed.sql`. El script se puede volver a ejecutar sobre una base ya creada: agrega las tablas `payments` y `house_debts` y las columnas nuevas sin borrar datos. Si la base se creó con la versión que usaba Google Drive, ejecuta también, en orden, `0002_remove_file_storage.sql` (quita `drive_file_id` y `drive_file_url`) y `0003_freeze_receipt_header.sql` (congela el encabezado de los recibos).
-2. **Administradores**: créalos en Authentication → Users y dales acceso a sus condominios:
-   ```sql
-   insert into public.condominium_admins (user_id, condominium_id)
-   select u.id, c.id from auth.users u, public.condominiums c
-    where u.email = 'correo@ejemplo.com' and c.slug in ('manzana-3-a', 'manzana-3-b');
-   ```
+2. **Usuarios**: viven en la tabla `users` (`seed.sql` crea a `maria` y un residente por casa). Al mudar la base local, los usuarios y sus PIN se copian tal cual.
+
 ## Arquitectura
 
 ```

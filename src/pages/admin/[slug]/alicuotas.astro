@@ -14,7 +14,7 @@ const service = getCondominiumService();
 const [units, full] = await Promise.all([service.listUnits(condominium), service.getWithSettings(condominium)]);
 ---
 
-<AdminLayout title={`Alícuotas · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="alicuotas">
+<AdminLayout title={`Alícuotas · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="alicuotas">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}

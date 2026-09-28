@@ -30,9 +30,6 @@ export const config = {
 
   local: {
     dataDir: env.LOCAL_DATA_DIR,
-    adminEmail: env.LOCAL_ADMIN_EMAIL,
-    adminPassword: env.LOCAL_ADMIN_PASSWORD,
-    adminName: env.LOCAL_ADMIN_NAME,
   },
 
   supabase() {

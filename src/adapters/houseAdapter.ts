@@ -1,12 +1,13 @@
 import type { House } from '@/types/domain';
 import type { HouseRow } from '@/types/database';
+import { residentUsernameOf } from '@/adapters/userAdapter';
 
 export function supabaseHouseToDomainHouse(row: HouseRow): House {
   return {
     id: row.id,
     condominiumId: row.condominium_id,
     number: row.number,
-    username: row.username,
+    username: residentUsernameOf(row.users),
     ownerName: row.owner_name,
     ownerDocument: row.owner_document ?? null,
     ownerEmail: row.owner_email,

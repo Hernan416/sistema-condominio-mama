@@ -47,7 +47,8 @@ export interface House {
   id: string;
   condominiumId: string;
   number: string;
-  username: string;
+  /** Usuario con que entra el residente de esta casa (tabla users); null si no tiene. */
+  username: string | null;
   ownerName: string | null;
   /** Cédula o RIF del propietario, ej. "V-12345678". */
   ownerDocument: string | null;
@@ -139,12 +140,21 @@ export interface ResidentSession {
 
 export interface AdminSession {
   userId: string;
-  email: string | null;
+  username: string;
   /** Nombre para saludar ("María González"); null si no se conoce. */
   name: string | null;
 }
 
-export type PinVerificationResult =
-  | { status: 'ok'; session: ResidentSession }
-  | { status: 'invalid' }
-  | { status: 'locked'; lockedUntil: Date };
+export type UserRole = 'admin' | 'resident';
+
+/** Usuario con sus credenciales (solo lo usa el login; nunca llega a la interfaz). */
+export interface UserCredentials {
+  id: string;
+  username: string;
+  pinHash: string;
+  role: UserRole;
+  displayName: string | null;
+  houseId: string | null;
+  failedAttempts: number;
+  lockedUntil: Date | null;
+}

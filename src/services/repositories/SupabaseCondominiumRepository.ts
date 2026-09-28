@@ -23,16 +23,10 @@ export class SupabaseCondominiumRepository implements CondominiumRepository {
     return data ? supabaseCondominiumToDomain(data) : null;
   }
 
-  async listForAdmin(adminUserId: string): Promise<Condominium[]> {
-    const { data, error } = await this.db
-      .from('condominium_admins')
-      .select(`condominiums(${COLUMNS})`)
-      .eq('user_id', adminUserId)
-      .overrideTypes<{ condominiums: CondominiumRow | null }[], { merge: false }>();
+  async listAll(): Promise<Condominium[]> {
+    const { data, error } = await this.db.from('condominiums').select(COLUMNS).overrideTypes<CondominiumRow[], { merge: false }>();
     if (error) throw new Error(`No se pudieron listar los condominios: ${error.message}`);
-    return (data ?? [])
-      .flatMap((r) => (r.condominiums ? [supabaseCondominiumToDomain(r.condominiums)] : []))
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return (data ?? []).map(supabaseCondominiumToDomain).sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }
 
   async findWithSettings(id: string): Promise<CondominiumWithSettings | null> {

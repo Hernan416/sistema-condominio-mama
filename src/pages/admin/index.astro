@@ -18,7 +18,7 @@ const condominiums = overview.map((o) => o.condominium);
 const pending = overview.reduce((sum, o) => sum + o.pendingCount, 0);
 ---
 
-<AdminLayout title="Sus condominios" appName={getAppName()} adminEmail={admin.email} condominiums={condominiums}>
+<AdminLayout title="Sus condominios" appName={getAppName()} adminUsername={admin.username} condominiums={condominiums}>
   <header class="mb-10 flex flex-wrap items-end justify-between gap-4">
     <div>
       <p class="text-xl font-bold text-accent">¡Bienvenida{admin.name ? `, ${admin.name}` : ''}!</p>

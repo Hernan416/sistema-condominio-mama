@@ -13,8 +13,9 @@ export class CondominiumService {
     private readonly billing: BillingService,
   ) {}
 
-  listForAdmin(admin: AdminSession): Promise<Condominium[]> {
-    return this.condominiums.listForAdmin(admin.userId);
+  /** La administradora gestiona todos los condominios (sistema cerrado, un solo rol de admin). */
+  listForAdmin(_admin: AdminSession): Promise<Condominium[]> {
+    return this.condominiums.listAll();
   }
 
   /** Devuelve el condominio solo si el administrador tiene acceso; si no, AccessDeniedError. */

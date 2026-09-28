@@ -43,7 +43,7 @@ const link = (params: Record<string, string | null>) => {
 };
 ---
 
-<AdminLayout title={`Cobranza · ${condominium.name}`} appName={getAppName()} adminEmail={admin.email} condominiums={condominiums} activeSlug={condominium.slug} activeTab="cobranza">
+<AdminLayout title={`Cobranza · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="cobranza">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}

@@ -2,11 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { currentPeriod } from '@/utils/months';
 import { equalAliquots } from '@/utils/billingCalculator';
 import { dueDateFor } from '@/utils/dueDate';
-import { hashPin } from '@/services/local/pinHasher';
+import { hashPin } from '@/services/auth/pinHasher';
 import { LOCAL_SCHEMA_VERSION, type LocalDatabase, type LocalHouseRecord } from '@/services/local/localSchema';
-import type { BillingSheetRow, CondominiumRow } from '@/types/database';
+import type { BillingSheetRow, CondominiumRow, UserRow } from '@/types/database';
 
 /** Mismos datos que supabase/seed.sql. Montos en USD. PIN de todas las casas de prueba: 1234. */
+
+/** Administradora de prueba (usuario + PIN, como todos). Cámbiele el PIN al pasar a producción. */
+export const DEMO_ADMIN = { username: 'maria', pin: '2508', name: 'María González' };
+
+/** Fila de la tabla users. */
+export function userRecord(fields: Pick<UserRow, 'username' | 'pin_hash' | 'role' | 'display_name' | 'house_id'> & Partial<UserRow>): UserRow {
+  return { id: randomUUID(), failed_attempts: 0, locked_until: null, created_at: new Date().toISOString(), ...fields };
+}
 const UNITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 const SEED = [
   { name: 'Manzana 3-A', slug: 'manzana-3-a', prefix: '3a', rif: 'J-00000000-1' },
@@ -74,6 +82,7 @@ export function buildLocalSeed(): LocalDatabase {
     billing_sheets: [],
     payments: [],
     house_debts: [],
+    users: [userRecord({ username: DEMO_ADMIN.username, pin_hash: hashPin(DEMO_ADMIN.pin), role: 'admin', display_name: DEMO_ADMIN.name, house_id: null })],
   };
 
   for (const c of SEED) {
@@ -86,7 +95,6 @@ export function buildLocalSeed(): LocalDatabase {
         id: randomUUID(),
         condominium_id: condominium.id,
         number: unit,
-        username: `${c.prefix}-${unit}`,
         owner_name: `Propietario casa ${unit}`,
         owner_document: null,
         owner_email: null,
@@ -97,12 +105,10 @@ export function buildLocalSeed(): LocalDatabase {
         occupant_name: null,
         occupant_phone: null,
         notes: null,
-        pin_hash: pinHash,
-        failed_attempts: 0,
-        locked_until: null,
       };
       ids.push(house.id);
       db.houses.push(house);
+      db.users.push(userRecord({ username: `${c.prefix}-${unit}`, pin_hash: pinHash, role: 'resident', display_name: house.owner_name, house_id: house.id }));
     });
     db.billing_sheets.push(demoBillingSheet(condominium.id, ids, period));
   }

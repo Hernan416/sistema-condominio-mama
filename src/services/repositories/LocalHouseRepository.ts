@@ -1,5 +1,5 @@
 import { houseUpdateToRow, supabaseHouseToDomainHouse, type HouseUpdate } from '@/adapters/houseAdapter';
-import type { LocalJsonStore } from '@/services/local/LocalJsonStore';
+import type { LocalDatabase, LocalHouseRecord, LocalJsonStore } from '@/services/local/LocalJsonStore';
 import type { HouseRepository } from '@/services/contracts';
 import type { House } from '@/types/domain';
 
@@ -7,16 +7,16 @@ export class LocalHouseRepository implements HouseRepository {
   constructor(private readonly store: LocalJsonStore) {}
 
   async findById(id: string): Promise<House | null> {
-    const { houses } = await this.store.read();
-    const row = houses.find((h) => h.id === id);
-    return row ? supabaseHouseToDomainHouse(row) : null;
+    const db = await this.store.read();
+    const row = db.houses.find((h) => h.id === id);
+    return row ? toDomain(db, row) : null;
   }
 
   async listByCondominium(condominiumId: string): Promise<House[]> {
-    const { houses } = await this.store.read();
-    return houses
+    const db = await this.store.read();
+    return db.houses
       .filter((h) => h.condominium_id === condominiumId)
-      .map(supabaseHouseToDomainHouse)
+      .map((row) => toDomain(db, row))
       .sort((a, b) => a.number.localeCompare(b.number, 'es', { numeric: true }));
   }
 
@@ -26,8 +26,14 @@ export class LocalHouseRepository implements HouseRepository {
         const row = db.houses.find((h) => h.id === id);
         if (!row) throw new Error('La unidad no existe');
         Object.assign(row, houseUpdateToRow(update));
-        return supabaseHouseToDomainHouse(row);
+        return toDomain(db, row);
       }),
     );
   }
+}
+
+/** Simula el join `users(username, role)` de Supabase y pasa por el mismo adapter. */
+function toDomain(db: LocalDatabase, row: LocalHouseRecord): House {
+  const users = db.users.filter((u) => u.house_id === row.id).map(({ username, role }) => ({ username, role }));
+  return supabaseHouseToDomainHouse({ ...row, users });
 }

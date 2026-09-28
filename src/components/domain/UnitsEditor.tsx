@@ -78,7 +78,7 @@ export default function UnitsEditor({ condominiumSlug, initialUnits, initialSche
                   <th scope="row" className="px-4 py-3 text-left">
                     <div className="flex items-center gap-3">
                       <span className="font-display tabular inline-flex h-10 min-w-10 items-center justify-center rounded-xl bg-sunken px-2 text-lg font-semibold">{unit.number}</span>
-                      <code className="whitespace-nowrap text-sm font-normal text-ink-muted">{unit.username}</code>
+                      <code className="whitespace-nowrap text-sm font-normal text-ink-muted">{unit.username ?? 'sin usuario'}</code>
                     </div>
                   </th>
                   <td className="px-4 py-3 text-ink-muted">{unit.ownerName ?? 'Sin propietario'}</td>

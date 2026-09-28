@@ -10,7 +10,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const back = (error: string) => redirect(`/?error=${error}&usuario=${encodeURIComponent(identifier.slice(0, 120))}`, 303);
 
   try {
-    const result = await getLoginService(request, cookies).login(identifier, secret);
+    const result = await getLoginService(cookies).login(identifier, secret);
     if (result.status === 'admin') return redirect('/admin', 303);
     if (result.status === 'resident') return redirect('/dashboard', 303);
     return back(result.status);
