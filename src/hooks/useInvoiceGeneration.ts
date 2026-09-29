@@ -24,7 +24,7 @@ interface Options {
 }
 
 /** Unidad que necesita emitirse: sin recibo, o con recibo que ya no coincide con la relación de gastos. */
-export const needsIssuing = (r: InvoiceRowDto) => !r.invoice || r.invoice.status === 'pending' || r.outdated;
+export const needsIssuing = (r: InvoiceRowDto) => !r.invoice?.imported && (!r.invoice || r.invoice.status === 'pending' || r.outdated);
 
 export function useInvoiceGeneration({ condominiumSlug, initialPeriod, initialRows, initialSheetSaved }: Options) {
   const api = useMemo(() => createAdminInvoicesApi(condominiumSlug), [condominiumSlug]);

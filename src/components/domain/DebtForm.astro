@@ -13,8 +13,9 @@ const { action, today } = Astro.props;
 
 <form method="post" action={action} class="flex flex-col gap-4">
   <FormField id="debt-concept" name="concept" label="Concepto" placeholder="Ej.: Saldo pendiente al 31/08/2026" maxlength={120} required />
-  <div class="grid gap-4 sm:grid-cols-2">
+  <div class="grid gap-4 sm:grid-cols-3">
     <FormField id="debt-amount" name="amount" label="Monto (USD)" inputmode="decimal" placeholder="0,00" required />
+    <FormField id="debt-months" name="months" label="¿Cuántos meses son?" inputmode="numeric" placeholder="Ej.: 14" hint="Déjelo vacío si no son cuotas (multa, reparación)." />
     <FormField id="debt-date" name="date" type="date" label="Fecha de origen" value={today} required hint="Define su antigüedad." />
   </div>
   <FormField

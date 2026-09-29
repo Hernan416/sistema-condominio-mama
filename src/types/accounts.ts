@@ -38,6 +38,8 @@ export interface HouseDebt {
   /** Fecha de origen "YYYY-MM-DD" (define su antigüedad y el orden en que se cobra). */
   date: string;
   amount: number;
+  /** Meses de condominio que representa (null = no son meses: multa, reparación…). */
+  months: number | null;
   createdAt: Date | null;
 }
 

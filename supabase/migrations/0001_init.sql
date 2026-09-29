@@ -205,6 +205,18 @@ alter table public.houses add column if not exists occupancy text not null defau
 alter table public.houses add column if not exists occupant_name text;
 alter table public.houses add column if not exists occupant_phone text;
 alter table public.houses add column if not exists notes text;
+-- Meses de condominio que representa una deuda registrada (ej. deuda 2024–2025 = 14).
+alter table public.house_debts add column if not exists months smallint check (months is null or months between 1 and 600);
+-- Trazabilidad de datos importados (recibos, balances y deudas históricas): archivo de
+-- origen y lote de importación (permite revisar o deshacer una carga completa).
+alter table public.invoices add column if not exists source text;
+alter table public.invoices add column if not exists import_batch text;
+alter table public.payments add column if not exists source text;
+alter table public.payments add column if not exists import_batch text;
+alter table public.house_debts add column if not exists source text;
+alter table public.house_debts add column if not exists import_batch text;
+alter table public.billing_sheets add column if not exists source text;
+alter table public.billing_sheets add column if not exists import_batch text;
 -- ─── updated_at automático ──────────────────────────────────────────────────
 create or replace function public.touch_updated_at()
 returns trigger language plpgsql as $$

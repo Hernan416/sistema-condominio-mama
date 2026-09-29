@@ -48,7 +48,7 @@ const statusView = {
                 <td class="px-4 py-3">
                   <span class="block font-bold text-ink">{c.label}</span>
                   <span class="text-xs text-ink-muted">
-                    {c.source === 'debt' ? 'Deuda registrada' : 'Recibo mensual'}
+                    {c.source === 'debt' ? `Deuda registrada${c.debt?.months ? ` · ${c.debt.months} ${c.debt.months === 1 ? 'mes' : 'meses'}` : ''}` : 'Recibo mensual'}
                     {c.debt?.detail ? ` · ${c.debt.detail}` : ''}
                   </span>
                   <div class="mt-1 flex gap-3">

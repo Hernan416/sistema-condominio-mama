@@ -1,7 +1,7 @@
 import type { BillingPeriod, Condominium, CondominiumSettings, House, Invoice, IssuedReceiptHeader } from '@/types/domain';
 import type { CondominiumRepository, CurrentExchangeRate, HouseRepository, InvoicePdfRenderer, InvoiceRepository } from '@/services/contracts';
 import type { BillingService } from '@/services/billing/BillingService';
-import { NotFoundError } from '@/services/errors';
+import { ConflictError, NotFoundError } from '@/services/errors';
 import { DEFAULT_SETTINGS } from '@/adapters/condominiumAdapter';
 import { issuedRateOf } from '@/adapters/invoiceAdapter';
 import { invoiceFileName } from '@/utils/invoiceNaming';
@@ -29,6 +29,10 @@ export class InvoiceService {
   ) {}
 
   async generate(condominium: Condominium, houseId: string, period: BillingPeriod): Promise<Invoice> {
+    const existing = await this.invoices.findByHouseAndPeriod(houseId, period);
+    if (existing?.imported) {
+      throw new ConflictError('Este recibo es histórico (se cargó de los archivos) y se conserva tal cual: no se puede volver a emitir.');
+    }
     const [{ house, breakdown }, full, exchangeRate] = await Promise.all([
       this.billing.breakdownFor(condominium, period, houseId),
       this.condominiums.findWithSettings(condominium.id),

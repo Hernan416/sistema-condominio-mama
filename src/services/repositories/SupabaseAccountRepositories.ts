@@ -5,7 +5,7 @@ import type { HouseDebt, Payment } from '@/types/accounts';
 import type { HouseDebtRepository, PaymentRepository } from '@/services/contracts';
 
 const PAYMENT_COLUMNS = 'id, house_id, paid_on, amount, method, reference, amount_ves, exchange_rate, note, created_at';
-const DEBT_COLUMNS = 'id, house_id, concept, detail, origin_date, amount, created_at';
+const DEBT_COLUMNS = 'id, house_id, concept, detail, origin_date, amount, months, created_at';
 
 export class SupabasePaymentRepository implements PaymentRepository {
   constructor(private readonly db: SupabaseClient) {}

@@ -8,6 +8,7 @@ import { getAccountService, getAppName } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { formatUsd } from '@/utils/currency';
+import { monthsLabel } from '@/utils/months';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
@@ -42,7 +43,7 @@ const accounts = [...(await getAccountService().accountsFor(condominium.id)).val
 
     <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-house-list>
       {
-        accounts.map(({ house, outstanding, credit }) => (
+        accounts.map(({ house, outstanding, credit, monthsOwed }) => (
           <li data-search={`${house.number} ${house.ownerName ?? ''}`.toLowerCase()}>
             <a
               href={`/admin/${condominium.slug}/casas/${house.id}?accion=pago#pagos`}
@@ -52,7 +53,7 @@ const accounts = [...(await getAccountService().accountsFor(condominium.id)).val
               <span class="flex min-w-0 flex-col">
                 <span class="truncate text-lg font-bold text-ink">{house.ownerName ?? `Casa ${house.number}`}</span>
                 {outstanding > 0 ? (
-                  <span class="text-base font-bold text-warning">Debe {formatUsd(outstanding)}</span>
+                  <span class="text-base font-bold text-warning">Debe {formatUsd(outstanding)}{monthsOwed > 0 ? ` · ${monthsLabel(monthsOwed)}` : ''}</span>
                 ) : credit > 0 ? (
                   <span class="text-base font-bold text-accent">Tiene {formatUsd(credit)} a favor</span>
                 ) : (

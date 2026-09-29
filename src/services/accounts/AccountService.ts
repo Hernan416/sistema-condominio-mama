@@ -33,6 +33,8 @@ export interface HouseAccount {
   credit: number;
   /** Fecha del cargo pendiente más antiguo (antigüedad de la deuda). */
   oldestPendingDate: string | null;
+  /** A cuántos meses de condominio equivale lo que debe (ver monthsOwed). */
+  monthsOwed: number;
 }
 
 export interface PaymentInput {
@@ -52,6 +54,8 @@ export interface DebtInput {
   detail: string | null;
   date: string;
   amount: number;
+  /** Meses de condominio que representa (vacío si no son meses). */
+  months: number | null;
 }
 
 const METHODS: PaymentMethod[] = ['transfer', 'mobile', 'zelle', 'cash_usd', 'cash_ves', 'other'];
@@ -176,12 +180,16 @@ export class AccountService implements AccountLedger {
     if (!concept) throw new ValidationError('La deuda necesita un concepto');
     if (!isDate(input.date)) throw new ValidationError('Fecha de origen inválida');
     if (!(Number.isFinite(input.amount) && input.amount > 0 && input.amount <= 1e9)) throw new ValidationError('El monto de la deuda debe ser mayor que 0');
+    if (input.months !== null && !(Number.isInteger(input.months) && input.months >= 1 && input.months <= 600)) {
+      throw new ValidationError('Los meses deben ser un número entero entre 1 y 600 (o dejarlo vacío)');
+    }
     return this.debts.create({
       houseId,
       concept: concept.slice(0, 120),
       detail: input.detail?.trim().slice(0, 500) || null,
       date: input.date,
       amount: roundCents(input.amount),
+      months: input.months,
     });
   }
 
@@ -237,5 +245,22 @@ export function buildAccount(house: House, invoices: Invoice[], debts: HouseDebt
     outstanding: ledger.outstanding,
     credit: ledger.credit,
     oldestPendingDate: accountCharges.find((c) => c.outstanding > 0)?.date ?? null,
+    monthsOwed: monthsOwed(accountCharges),
   };
+}
+
+/**
+ * A cuántos meses de condominio equivale lo que debe: cada recibo mensual pendiente
+ * (aunque tenga abono) cuenta 1 mes; una deuda registrada cuenta los meses que representa,
+ * en proporción a lo que falta (14 meses con la mitad pagada → 7). Multas y otros cargos
+ * sin meses no suman.
+ */
+export function monthsOwed(charges: AccountCharge[]): number {
+  let months = 0;
+  for (const c of charges) {
+    if (c.outstanding <= 0) continue;
+    if (c.invoice) months += 1;
+    else if (c.debt?.months) months += Math.ceil((c.debt.months * c.outstanding) / c.amount - 1e-9);
+  }
+  return months;
 }

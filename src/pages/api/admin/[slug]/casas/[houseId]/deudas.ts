@@ -18,6 +18,7 @@ export const POST: APIRoute = async ({ locals, params, request }) => {
         detail: text('detail', 500),
         date: text('date', 10) ?? '',
         amount: parseAmountInput(text('amount', 30) ?? '') ?? 0,
+        months: text('months', 4) ? Number(text('months', 4)) : null,
       });
       return `Deuda "${debt.concept}" de ${formatUsd(debt.amount)} registrada`;
     },

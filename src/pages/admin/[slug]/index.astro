@@ -16,7 +16,7 @@ import { getAppName, getBillingService, getMetricsService } from '@/services/con
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
-import { allMonths, currentPeriod, formatPeriod, monthName } from '@/utils/months';
+import { allMonths, currentPeriod, formatPeriod, monthName, monthsLabel } from '@/utils/months';
 import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
 import { debtAgeLabel } from '@/utils/ledger';
 
@@ -182,7 +182,7 @@ const checklist = [
                       <span class="font-display inline-flex h-11 min-w-11 items-center justify-center rounded-xl bg-sunken px-2 text-lg font-semibold text-ink">{d.house.number}</span>
                       <span>
                         <span class="block font-bold text-ink">{d.house.ownerName ?? 'Sin propietario'}</span>
-                        <span class="text-sm text-ink-muted">Deuda más antigua: {d.oldestDate ? debtAgeLabel(d.oldestDate, today) : '—'}</span>
+                        <span class="text-sm text-ink-muted">{d.monthsOwed > 0 ? `${monthsLabel(d.monthsOwed)} · ` : ''}Deuda más antigua: {d.oldestDate ? debtAgeLabel(d.oldestDate, today) : '—'}</span>
                       </span>
                     </span>
                     <span class="flex items-center gap-3">

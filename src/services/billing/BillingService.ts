@@ -114,6 +114,9 @@ export class BillingService {
     const units = houses.map((house) => {
       const invoice = byHouse.get(house.id) ?? null;
       const breakdown = breakdowns.get(house.id)!;
+      if (invoice?.imported && invoice.detail) {
+        return { house, invoice, breakdown: invoice.detail, outdated: false, payment: states.get(invoice.id) ?? null };
+      }
       const outdated = !!invoice && invoice.status === 'generated' && Math.abs(invoice.amount - breakdown.monthTotal) >= 0.005;
       return { house, invoice, breakdown, outdated, payment: invoice ? (states.get(invoice.id) ?? null) : null };
     });

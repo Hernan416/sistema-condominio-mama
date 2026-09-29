@@ -31,6 +31,7 @@ const { status: s, todayRateLabel, receiptHref = null } = Astro.props;
       <div>
         <p class="text-xl text-ink-muted">Total que debe</p>
         <p class="font-display text-6xl font-semibold leading-tight text-warning">{s.outstandingLabel}</p>
+        {s.monthsOwedLabel && <p class="text-2xl font-bold text-warning">Equivale a {s.monthsOwedLabel} de condominio</p>}
         {s.outstandingVesLabel && <p class="text-2xl font-bold">{s.outstandingVesLabel} <span class="text-lg font-normal text-ink-muted">a la tasa de hoy</span></p>}
         <ul class="mt-4 flex flex-col gap-2 text-base font-bold sm:flex-row sm:flex-wrap">
           <li class="rounded-xl bg-warning-tint px-4 py-2.5 text-warning sm:rounded-full sm:py-1.5">{s.pendingCount} {s.pendingCount === 1 ? 'cuenta pendiente' : 'cuentas pendientes'}</li>

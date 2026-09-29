@@ -19,6 +19,7 @@ export function supabaseInvoiceToDomainInvoice(row: InvoiceRow): Invoice {
     paidAt: row.paid_at ? new Date(row.paid_at) : null,
     detail: isBreakdown(row.detail) ? row.detail : null,
     issued: issuedHeaderOf(row),
+    imported: !!(row.import_batch || row.source),
   };
 }
 

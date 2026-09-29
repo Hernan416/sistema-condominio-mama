@@ -63,6 +63,19 @@ Organizado por tareas (pensado para una administradora con poca experiencia digi
 - Anular un pago o eliminar una deuda recalcula todo automáticamente. El estado "pagado" nunca se guarda a mano: sale del libro de pagos.
 - **Caja** = saldo inicial + cobrado + ingresos de la comunidad − gastos (de las relaciones de gastos guardadas hasta el mes actual).
 
+## Carga de datos históricos (ene–sep 2026)
+
+Se hace **primero en local**; cuando todo cuadra, se sube a Supabase. Tres pasos:
+
+1. **Extraer** (no toca la base): `npm run import:extract -- "<carpeta>" "<alícuotas.xlsx>" "<deudas.xlsx>"`
+   Lee `Condominio / Mes / {Recibos | Balance general} / *.pdf`, saca el texto de cada PDF (`pdftotext -layout`) y convierte los Excel a JSON en `.local-data/import/`, con un `inventario.json` (condominio, mes, tipo, páginas, duplicados, PDF escaneados).
+2. **Plantilla**: todo se lleva a un JSON estándar (`scripts/import/plantilla.ts`): alícuotas y dueños, balances por mes, **cada recibo con todas sus líneas y conceptos exactos**, y la deuda al corte con sus meses. Cada dato guarda su archivo de origen.
+3. **Importar**: `npm run import -- plantilla.json` (ensayo: concilia casa por casa y deja `reporte-<lote>.csv` para Excel) → `--apply` (respaldo automático y carga) · `npm run import -- --undo <lote>` (quita todo ese lote).
+
+Reglas: los recibos importados se guardan tal cual (desglose y encabezado congelados) y **no se pueden volver a emitir**. La deuda de años anteriores entra como deuda registrada con sus **meses**. Si no hay pagos con fecha, se calculan de la cadena de recibos (deuda anterior + mes − deuda anterior del recibo siguiente). Cada casa debe cuadrar con el archivo de deudas en monto y meses. Pruebas: `npm run import:test`. Para empezar de cero: `npm run data:reset-history -- --apply` (borra recibos, pagos, deudas y gastos; conserva casas, usuarios y PIN).
+
+**Meses que debe**: cada recibo pendiente cuenta 1 mes; una deuda registrada cuenta los meses que representa (en proporción a lo que falta). Se ve en la ficha, la lista de casas, Inicio y la pantalla del residente.
+
 ## Cómo se calcula cada recibo (Venezuela)
 
 - **Alícuota** (LPH art. 7): % de participación de cada casa. Puede escribirse a mano o calcularse con **tipos de alícuota** con nombre propio ("Casa pequeña = 6", "Casa grande = 8"), como proporciones que se ajustan a 100 % o como porcentajes exactos.

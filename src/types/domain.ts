@@ -97,6 +97,8 @@ export interface Invoice extends BillingPeriod {
   detail: InvoiceBreakdown | null;
   /** Encabezado tal como estaba al emitir (null en recibos anteriores a este cambio). */
   issued: IssuedReceiptHeader | null;
+  /** Recibo histórico cargado desde los archivos (PDF): se conserva tal cual, no se re-emite. */
+  imported: boolean;
 }
 
 /** Datos del condominio que imprime el recibo. */

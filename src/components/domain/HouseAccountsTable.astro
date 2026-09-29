@@ -4,6 +4,7 @@ import Icon from '@/components/ui/Icon.astro';
 import type { HouseAccount } from '@/services/accounts/AccountService';
 import { OCCUPANCY_LABELS } from '@/types/accounts';
 import { formatUsd } from '@/utils/currency';
+import { monthsLabel } from '@/utils/months';
 import { debtAgeLabel } from '@/utils/ledger';
 
 interface Props {
@@ -29,7 +30,7 @@ const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] te
     </thead>
     <tbody>
       {
-        accounts.map(({ house, outstanding, credit, oldestPendingDate }) => {
+        accounts.map(({ house, outstanding, credit, oldestPendingDate, monthsOwed }) => {
           const age = oldestPendingDate ? debtAgeLabel(oldestPendingDate, today) : null;
           return (
             <tr class="border-b border-line last:border-b-0 hover:bg-canvas/50">
@@ -51,6 +52,7 @@ const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] te
                 {outstanding > 0 ? (
                   <>
                     <span class="tabular block font-bold text-warning">Debe {formatUsd(outstanding)}</span>
+                    {monthsOwed > 0 && <span class="block text-sm font-bold text-warning">{monthsLabel(monthsOwed)}</span>}
                     <span class="text-xs text-ink-muted">{age === 'aún no vence' ? age : age && `pendiente ${age}`}</span>
                   </>
                 ) : credit > 0 ? (

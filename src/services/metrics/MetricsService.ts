@@ -25,6 +25,8 @@ export interface Debtor {
   outstanding: number;
   /** Fecha del cargo pendiente más antiguo. */
   oldestDate: string | null;
+  /** A cuántos meses de condominio equivale lo que debe. */
+  monthsOwed: number;
 }
 
 export interface CondominiumMetrics {
@@ -123,7 +125,7 @@ export class MetricsService {
       credit += account.credit;
       for (const c of account.charges) if (c.outstanding > 0) aging[agingBucket(daysSince(c.date, today))] += c.outstanding;
       if (account.outstanding > 0) {
-        debtors.push({ house: account.house, outstanding: account.outstanding, oldestDate: account.oldestPendingDate });
+        debtors.push({ house: account.house, outstanding: account.outstanding, oldestDate: account.oldestPendingDate, monthsOwed: account.monthsOwed });
       }
     }
     for (const k of Object.keys(aging) as AgingBucket[]) aging[k] = roundCents(aging[k]);

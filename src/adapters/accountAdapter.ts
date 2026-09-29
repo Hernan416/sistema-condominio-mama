@@ -41,6 +41,7 @@ export function debtRowToDomain(row: HouseDebtRow): HouseDebt {
     detail: row.detail,
     date: row.origin_date,
     amount: Number(row.amount),
+    months: row.months == null ? null : Number(row.months),
     createdAt: row.created_at ? new Date(row.created_at) : null,
   };
 }
@@ -48,5 +49,5 @@ export function debtRowToDomain(row: HouseDebtRow): HouseDebt {
 export type NewDebt = Omit<HouseDebt, 'id' | 'createdAt'>;
 
 export function newDebtToRow(d: NewDebt): Omit<HouseDebtRow, 'id' | 'created_at'> {
-  return { house_id: d.houseId, concept: d.concept, detail: d.detail, origin_date: d.date, amount: d.amount };
+  return { house_id: d.houseId, concept: d.concept, detail: d.detail, origin_date: d.date, amount: d.amount, months: d.months };
 }

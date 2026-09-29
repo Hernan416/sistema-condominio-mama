@@ -11,6 +11,8 @@ export interface InvoiceDto {
   id: string;
   amount: number; // USD, lo facturado en el mes
   status: InvoiceStatus;
+  /** Histórico importado: no se puede volver a emitir. */
+  imported: boolean;
   generatedAt: string | null; // ISO
   paidAt: string | null; // ISO
 }

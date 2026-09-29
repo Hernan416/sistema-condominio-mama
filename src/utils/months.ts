@@ -28,3 +28,8 @@ export function periodFromQuery(params: URLSearchParams, now: Date = new Date())
   const year = Number(params.get('anio'));
   return Number.isInteger(month) && month >= 1 && month <= 12 && Number.isInteger(year) && year >= 2000 && year <= 2100 ? { month, year } : currentPeriod(now);
 }
+
+/** "1 mes", "3 meses". */
+export function monthsLabel(count: number): string {
+  return `${count} ${count === 1 ? 'mes' : 'meses'}`;
+}

@@ -6,7 +6,7 @@ import { PAYMENT_METHOD_LABELS } from '@/types/accounts';
 import type { AccountCharge, HouseAccount } from '@/services/accounts/AccountService';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
 import { formatDateVe } from '@/utils/dates';
-import { formatPeriod } from '@/utils/months';
+import { formatPeriod, monthsLabel } from '@/utils/months';
 import { formatPercent } from '@/utils/billingCalculator';
 import { debtAgeLabel } from '@/utils/ledger';
 
@@ -61,6 +61,8 @@ export function toResidentDashboardView({ account, selectedInvoiceId, todayRate,
       outstandingVesLabel: account.outstanding > 0 ? ves(account.outstanding) : null,
       creditLabel: account.credit > 0 ? formatUsd(account.credit) : null,
       pendingCount: pendingCharges.length,
+      /** "Equivale a 5 meses de condominio" (null si no debe meses). */
+      monthsOwedLabel: account.monthsOwed > 0 ? monthsLabel(account.monthsOwed) : null,
       oldestAgeLabel: account.oldestPendingDate ? debtAgeLabel(account.oldestPendingDate, today) : null,
       nextDueLabel: nextDue ? day(nextDue) : null,
       overdue: nextDue !== null && nextDue < today,
@@ -73,7 +75,7 @@ export function toResidentDashboardView({ account, selectedInvoiceId, todayRate,
     pending: pendingCharges.map((c) => ({
       id: c.id,
       label: c.label,
-      kindLabel: c.invoice ? 'Recibo mensual' : 'Deuda registrada por la administración',
+      kindLabel: c.invoice ? 'Recibo mensual' : `Deuda registrada por la administración${c.debt?.months ? ` (${monthsLabel(c.debt.months)})` : ''}`,
       detail: c.debt?.detail ?? null,
       sinceLabel: c.invoice ? `Recibo de ${formatPeriod(c.invoice.month, c.invoice.year).toLowerCase()}` : `Desde el ${day(c.date)}`,
       ageLabel: debtAgeLabel(c.date, today),

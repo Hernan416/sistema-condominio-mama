@@ -63,6 +63,9 @@ export interface PaymentRow {
   exchange_rate: number | string | null;
   note: string | null;
   created_at: string | null;
+  /** De dónde salió el dato importado y en qué lote se cargó. */
+  source?: string | null;
+  import_batch?: string | null;
 }
 
 export interface HouseDebtRow {
@@ -73,6 +76,11 @@ export interface HouseDebtRow {
   origin_date: string; // YYYY-MM-DD
   amount: number | string; // USD
   created_at: string | null;
+  /** Cuántos meses de condominio representa (ej. deuda 2024–2025 = 14). null = no son meses (multa, reparación…). */
+  months?: number | null;
+  /** De dónde salió el dato importado (archivo y página) y en qué lote se cargó. */
+  source?: string | null;
+  import_batch?: string | null;
 }
 
 export interface InvoiceRow {
@@ -87,6 +95,8 @@ export interface InvoiceRow {
   generated_at: string | null;
   paid_at: string | null;
   detail: unknown | null; // jsonb con el InvoiceBreakdown emitido
+  source?: string | null; // archivo de origen si se importó
+  import_batch?: string | null;
   // Encabezado congelado al emitir (null en recibos anteriores).
   issued_condominium_name?: string | null;
   issued_house_number?: string | null;
@@ -130,5 +140,8 @@ export interface BillingSheetRow {
   }[];
   unit_charges: { id: string; house_id: string; concept: string; amount: number; recurring?: boolean }[];
   updated_at: string | null;
+  /** De dónde salió el dato importado (balance general) y en qué lote se cargó. */
+  source?: string | null;
+  import_batch?: string | null;
 }
 

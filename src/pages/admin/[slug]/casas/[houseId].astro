@@ -17,6 +17,7 @@ import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
 import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
 import { debtAgeLabel } from '@/utils/ledger';
+import { monthsLabel } from '@/utils/months';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
@@ -75,6 +76,7 @@ const date = (iso: string) => formatDateVe(new Date(`${iso}T12:00:00-04:00`));
           <div>
             <p class="text-lg text-ink-muted">Esta casa debe</p>
             <p class="font-display text-5xl font-semibold text-warning">{formatUsd(account.outstanding)}</p>
+            {account.monthsOwed > 0 && <p class="text-xl font-bold text-warning">Equivale a {monthsLabel(account.monthsOwed)} de condominio</p>}
             <p class="text-base text-ink-muted">
               {rate ? `${formatVes(usdToVes(account.outstanding, rate.usdToVes))} a la tasa de hoy · ` : ''}
               Deuda más antigua: {account.oldestPendingDate ? debtAgeLabel(account.oldestPendingDate, today) : '—'}
