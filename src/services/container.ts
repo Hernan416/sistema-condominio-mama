@@ -24,6 +24,8 @@ import { PdfInvoiceFacade } from '@/services/pdf/PdfInvoiceFacade';
 import { ExchangeRateService } from '@/services/exchange/ExchangeRateService';
 import { DolarApiFacade } from '@/services/exchange/DolarApiFacade';
 import { FixedRateProvider } from '@/services/exchange/FixedRateProvider';
+import { CurrencyRatesFacade } from '@/services/exchange/CurrencyRatesFacade';
+import { CurrencyRatesService } from '@/services/exchange/CurrencyRatesService';
 // Local
 import { LocalJsonStore } from '@/services/local/LocalJsonStore';
 import { LocalBillingSheetRepository } from '@/services/repositories/LocalBillingSheetRepository';
@@ -97,6 +99,7 @@ let billingService: BillingService | null = null;
 let accountService: AccountService | null = null;
 let metricsService: MetricsService | null = null;
 let exchangeRates: ExchangeRateService | null = null;
+let currencyRates: CurrencyRatesService | null = null;
 
 function dataLayer(): DataLayer {
   return (data ??= dataProviders[config.dataProvider]());
@@ -173,6 +176,11 @@ export function getMetricsService(): MetricsService {
 export function getLoginService(cookies: AstroCookies): LoginService {
   const { users, houses } = dataLayer();
   return new LoginService(users, houses, cookies);
+}
+
+/** Tasas Bs. ⇄ USD/EUR de la calculadora pública (BCV, paralelo, Binance). */
+export function getCurrencyRates(): CurrencyRatesService {
+  return (currencyRates ??= new CurrencyRatesService(new CurrencyRatesFacade()));
 }
 
 export function isLocalDataMode(): boolean {

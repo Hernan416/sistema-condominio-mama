@@ -1,0 +1,30 @@
+---
+// Calculadora Bs. ⇄ USD/EUR: herramienta pública, aparte de la gestión de condominios.
+// No requiere sesión (ver middleware: solo /admin, /dashboard y sus API son privados).
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import BrandMark from '@/components/ui/BrandMark.astro';
+import ThemeToggle from '@/components/ui/ThemeToggle.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { CurrencyConverter } from '@/components/domain/CurrencyConverter';
+import { getAppName } from '@/services/container';
+---
+
+<BaseLayout title={`Calculadora de tasas · ${getAppName()}`} description="Convierta bolívares a dólares, euros o tasa Binance y viceversa.">
+  <div class="min-h-dvh px-5 py-10 sm:px-10">
+    <header class="mx-auto flex max-w-xl items-center justify-between gap-4">
+      <BrandMark name={getAppName()} size="sm" />
+      <ThemeToggle />
+    </header>
+
+    <main class="mx-auto mt-8 max-w-xl">
+      <a href="/" class="mb-6 inline-flex min-h-11 items-center gap-2 text-base font-bold text-ink-muted hover:text-ink">
+        <Icon name="arrow-left" size={20} /> Volver al inicio
+      </a>
+
+      <h1 class="font-display mb-2 text-4xl font-semibold">Calculadora de tasas</h1>
+      <p class="mb-8 text-lg leading-relaxed text-ink-muted">Bolívares, dólares, euros y tasa Binance, en ambos sentidos.</p>
+
+      <CurrencyConverter client:load />
+    </main>
+  </div>
+</BaseLayout>

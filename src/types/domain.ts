@@ -81,6 +81,19 @@ export interface ExchangeRate {
   publishedAt: Date;
 }
 
+/**
+ * Tasas para la calculadora pública Bs. ⇄ USD/EUR (independiente de la facturación:
+ * no se guarda en la base, se consulta en vivo cada vez que alguien la usa).
+ */
+export interface CurrencyRates {
+  usdBcv: number;
+  usdParalelo: number;
+  usdBinance: number;
+  eurBcv: number;
+  eurParalelo: number;
+  updatedAt: Date;
+}
+
 export interface Invoice extends BillingPeriod {
   id: string;
   houseId: string;

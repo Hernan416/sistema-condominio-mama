@@ -61,3 +61,13 @@ export interface ExchangeRateDto {
   source: string;
   publishedAt: string; // ISO
 }
+
+/** Tasas de la calculadora pública (GET /api/currency/rates). */
+export interface CurrencyRatesDto {
+  usdBcv: number;
+  usdParalelo: number;
+  usdBinance: number;
+  eurBcv: number;
+  eurParalelo: number;
+  updatedAt: string; // ISO
+}

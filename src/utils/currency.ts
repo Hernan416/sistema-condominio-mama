@@ -12,6 +12,11 @@ export function formatVes(amount: number): string {
   return `Bs. ${number2.format(amount)}`;
 }
 
+/** 30 → "€ 30,00" */
+export function formatEur(amount: number): string {
+  return `€ ${number2.format(amount)}`;
+}
+
 /** Conversión redondeada al céntimo. */
 export function usdToVes(amountUsd: number, usdToVesRate: number): number {
   return Math.round(amountUsd * usdToVesRate * 100) / 100;

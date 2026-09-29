@@ -16,4 +16,8 @@ const identifier = Astro.url.searchParams.get('usuario') ?? '';
   <h1 class="font-display mb-3 text-4xl font-semibold sm:text-5xl">Ingresar</h1>
   <p class="mb-10 text-xl leading-relaxed text-ink-muted">Escriba su usuario y su PIN para ver su cuenta o administrar su conjunto.</p>
   <UnifiedLoginForm error={error} identifier={identifier} />
+
+  <a href="/conversor" class="mt-8 inline-flex min-h-11 items-center gap-2 text-base font-bold text-ink-muted hover:text-ink">
+    Calculadora de tasas (Bs., USD, EUR, Binance)
+  </a>
 </AuthLayout>
