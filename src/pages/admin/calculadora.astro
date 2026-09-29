@@ -1,0 +1,21 @@
+---
+// Misma calculadora pública (/conversor), aquí dentro del panel para que la administradora
+// no tenga que salir de su sesión para consultarla.
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import { CurrencyConverter } from '@/components/domain/CurrencyConverter';
+import { getAppName, getCondominiumService } from '@/services/container';
+
+const admin = Astro.locals.admin!;
+const condominiums = await getCondominiumService().listForAdmin(admin);
+---
+
+<AdminLayout title="Calculadora de tasas" appName={getAppName()} adminUsername={admin.username} condominiums={condominiums}>
+  <header class="mb-8">
+    <h1 class="font-display text-4xl font-semibold sm:text-5xl">Calculadora de tasas</h1>
+    <p class="mt-3 text-lg text-ink-muted">Bolívares, dólares, euros y tasa Binance, en ambos sentidos.</p>
+  </header>
+
+  <div class="max-w-xl">
+    <CurrencyConverter client:load />
+  </div>
+</AdminLayout>

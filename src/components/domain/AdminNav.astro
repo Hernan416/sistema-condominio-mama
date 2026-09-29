@@ -18,7 +18,8 @@ interface Props {
 }
 
 const { appName, adminUsername, adminName = null, condominiums, activeSlug, activeTab = null } = Astro.props;
-const onOverview = activeSlug === null;
+const onOverview = Astro.url.pathname === '/admin';
+const onCalculator = Astro.url.pathname === '/admin/calculadora';
 const activeSection = activeTab ? sectionOf(activeTab) : null;
 
 const itemClass = (active: boolean) =>
@@ -47,6 +48,9 @@ const itemClass = (active: boolean) =>
       <div class="-mx-4 flex gap-2 relative overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0">
         <a href="/admin" class={itemClass(onOverview) + ' shrink-0'} aria-current={onOverview ? 'page' : undefined}>
           <Icon name="grid" size={20} /> Todos
+        </a>
+        <a href="/admin/calculadora" class={itemClass(onCalculator) + ' shrink-0'} aria-current={onCalculator ? 'page' : undefined}>
+          <Icon name="cash" size={20} /> Calculadora de tasas
         </a>
         <p class="mt-5 hidden px-3 text-xs font-bold uppercase tracking-[0.12em] text-night-muted lg:block">Condominios</p>
         {
