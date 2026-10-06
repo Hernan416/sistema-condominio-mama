@@ -121,6 +121,21 @@ export interface ExchangeRateRow {
   fetched_at: string; // ISO
 }
 
+/** Presupuesto de un proyecto (ej. "Pintura de fachada: $250"), repartido por alícuota entre
+ * las casas, en uno o varios meses. Ver `src/types/budget.ts` para el dominio. */
+export interface BudgetProjectRow {
+  id: string;
+  condominium_id: string;
+  name: string;
+  target_amount: number | string;
+  billing_mode: 'single' | 'spread';
+  collection_mode: 'proportional' | 'all_or_nothing';
+  start_year: number;
+  start_month: number;
+  months_count: number;
+  created_at: string | null;
+}
+
 /** Relación de gastos del mes (un agregado: gastos y cargos van en columnas jsonb). */
 export interface BillingSheetRow {
   condominium_id: string;
@@ -133,10 +148,14 @@ export interface BillingSheetRow {
   expenses: {
     id: string;
     concept: string;
+    /** Agrupador libre (ej. "Servicios"); ausente en filas guardadas antes de este campo. */
+    category?: string | null;
     amount: number;
     kind: 'ordinary' | 'extraordinary' | 'income';
     distribution: 'aliquot' | 'equal';
     overrides?: Record<string, { mode: 'exempt' } | { mode: 'fixed'; amount: number }>;
+    /** Si este gasto es la cuota de un proyecto con presupuesto (budget_projects.id). */
+    project_id?: string | null;
   }[];
   unit_charges: { id: string; house_id: string; concept: string; amount: number; recurring?: boolean }[];
   updated_at: string | null;

@@ -49,11 +49,11 @@ export function useBillingSheet({ condominiumSlug, units, initialPeriod, initial
 
   // ── Gastos del condominio ──────────────────────────────────
   const addExpense = (kind: ExpenseKind) => {
-    const expense: BuildingExpense = { id: newId(), concept: '', amount: 0, kind, distribution: 'aliquot' };
+    const expense: BuildingExpense = { id: newId(), concept: '', category: null, amount: 0, kind, distribution: 'aliquot' };
     edit((d) => ({ ...d, expenses: [...d.expenses, expense] }));
     setTexts((t) => ({ ...t, [expense.id]: '' }));
   };
-  const updateExpense = (id: string, patch: Partial<Pick<BuildingExpense, 'concept' | 'kind' | 'distribution'>>) =>
+  const updateExpense = (id: string, patch: Partial<Pick<BuildingExpense, 'concept' | 'category' | 'kind' | 'distribution'>>) =>
     edit((d) => ({ ...d, expenses: d.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)) }));
   const setExpenseAmount = (id: string, text: string) => {
     setTexts((t) => ({ ...t, [id]: text }));

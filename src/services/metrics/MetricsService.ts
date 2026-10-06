@@ -1,10 +1,11 @@
 import type { BillingPeriod, Condominium, House } from '@/types/domain';
 import type { BillingSheetRepository, CondominiumRepository, InvoiceRepository, PaymentRepository } from '@/services/contracts';
 import type { AccountService } from '@/services/accounts/AccountService';
+import type { PaymentMethod } from '@/types/accounts';
 import { DEFAULT_SETTINGS } from '@/adapters/condominiumAdapter';
 import { roundCents } from '@/utils/billingCalculator';
 import { agingBucket, daysSince, type AgingBucket } from '@/utils/ledger';
-import { monthName } from '@/utils/months';
+import { formatPeriod, monthName } from '@/utils/months';
 
 export interface MonthFigures {
   month: number;
@@ -59,6 +60,43 @@ export interface CondominiumMetrics {
   };
   /** Últimos 6 meses hasta el periodo, del más antiguo al más reciente. */
   trend: MonthFigures[];
+}
+
+export interface CashFlowPayment {
+  id: string;
+  date: string;
+  houseNumber: string;
+  ownerName: string | null;
+  amount: number;
+  method: PaymentMethod;
+  reference: string | null;
+}
+
+export interface CashFlowExpenseLine {
+  concept: string;
+  category: string | null;
+  kind: 'ordinary' | 'extraordinary';
+  amount: number;
+}
+
+export interface CashFlowIncomeLine {
+  concept: string;
+  category: string | null;
+  amount: number;
+}
+
+/** Ingresos y egresos de UN mes (no acumulado a hoy): para verlo o exportarlo. */
+export interface MonthlyCashFlow {
+  month: number;
+  year: number;
+  label: string;
+  openingBalance: number;
+  payments: CashFlowPayment[];
+  incomeLines: CashFlowIncomeLine[];
+  incomeTotal: number;
+  expenseLines: CashFlowExpenseLine[];
+  expenseTotal: number;
+  closingBalance: number;
 }
 
 const inMonth = (date: string, { month, year }: BillingPeriod) => date.startsWith(`${year}-${String(month).padStart(2, '0')}`);
@@ -157,6 +195,70 @@ export class MetricsService {
         topDebtors: debtors.sort((a, b) => b.outstanding - a.outstanding).slice(0, 6),
       },
       trend: Array.from({ length: 6 }, (_, i) => figures(shiftMonth(period, i - 5))),
+    };
+  }
+
+  /**
+   * Ingresos y egresos de UN mes concreto (no acumulado a hoy): el saldo inicial es la caja
+   * acumulada hasta el mes anterior, y los movimientos son solo los de este mes. Así, elegir
+   * septiembre muestra los movimientos de septiembre, con su propio saldo de cierre.
+   */
+  async monthlyCashFlow(condominium: Condominium, period: BillingPeriod): Promise<MonthlyCashFlow> {
+    const [full, sheets, accounts] = await Promise.all([
+      this.condominiums.findWithSettings(condominium.id),
+      this.sheets.listByCondominium(condominium.id),
+      this.accounts.accountsFor(condominium.id),
+    ]);
+    const settings = full?.settings ?? DEFAULT_SETTINGS;
+    const monthKeyOf = (p: { year: number; month: number }) => p.year * 100 + p.month;
+    const dateMonthKey = (iso: string) => Number(iso.slice(0, 4)) * 100 + Number(iso.slice(5, 7));
+    const current = monthKeyOf(period);
+    const since = settings.openingBalanceDate;
+    const sinceKey = since ? dateMonthKey(since) : 0;
+
+    const allPayments = [...accounts.values()].flatMap((a) => a.payments.map((p) => ({ payment: p, house: a.house })));
+
+    // Caja acumulada ANTES de este mes (misma fórmula que "dinero en caja hoy", pero el corte
+    // es el mes elegido en vez de la fecha real).
+    const before = sheets.filter((s) => monthKeyOf(s) < current && monthKeyOf(s) >= sinceKey);
+    const beforeIncome = roundCents(before.flatMap((s) => s.expenses).filter((e) => e.kind === 'income').reduce((s, e) => s + e.amount, 0));
+    const beforeExpenses = roundCents(before.flatMap((s) => s.expenses).filter((e) => e.kind !== 'income').reduce((s, e) => s + e.amount, 0));
+    const beforeCollected = roundCents(
+      allPayments
+        .filter(({ payment: p }) => (!since || p.date >= since) && dateMonthKey(p.date) < current)
+        .reduce((s, { payment: p }) => s + p.amount, 0),
+    );
+    const openingBalance = roundCents(settings.openingBalance + beforeCollected + beforeIncome - beforeExpenses);
+
+    // Movimientos DE este mes.
+    const sheet = sheets.find((s) => monthKeyOf(s) === current) ?? null;
+    // Los montos en $0 son cabeceras de sección del recibo (p. ej. "GASTO ADMINISTRATIVO"), no
+    // movimientos reales: no aportan al total y solo ensuciarían la lista de este reporte.
+    const incomeLines: CashFlowIncomeLine[] = (sheet?.expenses ?? [])
+      .filter((e) => e.kind === 'income' && e.amount !== 0)
+      .map((e) => ({ concept: e.concept, category: e.category ?? null, amount: e.amount }));
+    const expenseLines: CashFlowExpenseLine[] = (sheet?.expenses ?? [])
+      .filter((e) => e.kind !== 'income' && e.amount !== 0)
+      .map((e) => ({ concept: e.concept, category: e.category ?? null, kind: e.kind as 'ordinary' | 'extraordinary', amount: e.amount }));
+    const payments: CashFlowPayment[] = allPayments
+      .filter(({ payment: p }) => dateMonthKey(p.date) === current)
+      .map(({ payment: p, house }) => ({ id: p.id, date: p.date, houseNumber: house.number, ownerName: house.ownerName, amount: p.amount, method: p.method, reference: p.reference }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const incomeTotal = roundCents(payments.reduce((s, p) => s + p.amount, 0) + incomeLines.reduce((s, l) => s + l.amount, 0));
+    const expenseTotal = roundCents(expenseLines.reduce((s, l) => s + l.amount, 0));
+
+    return {
+      month: period.month,
+      year: period.year,
+      label: formatPeriod(period.month, period.year),
+      openingBalance,
+      payments,
+      incomeLines,
+      incomeTotal,
+      expenseLines,
+      expenseTotal,
+      closingBalance: roundCents(openingBalance + incomeTotal - expenseTotal),
     };
   }
 }

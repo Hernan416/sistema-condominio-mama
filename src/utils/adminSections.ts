@@ -2,16 +2,16 @@
 // Cinco secciones con nombres cotidianos; "Recibos del mes" y "Ajustes" agrupan dos pantallas.
 
 /** Pantalla concreta (una por página). */
-export type CondominiumTab = 'resumen' | 'facturas' | 'gastos' | 'casas' | 'cobranza' | 'alicuotas' | 'datos';
+export type CondominiumTab = 'resumen' | 'facturas' | 'gastos' | 'casas' | 'cobranza' | 'proyectos' | 'alicuotas' | 'datos';
 
-export type AdminSectionId = 'inicio' | 'recibos' | 'casas' | 'historial' | 'ajustes';
+export type AdminSectionId = 'inicio' | 'recibos' | 'casas' | 'historial' | 'proyectos' | 'ajustes';
 
 export interface AdminSection {
   id: AdminSectionId;
   label: string;
   /** Frase corta que explica para qué sirve (se muestra en el menú). */
   hint: string;
-  icon: 'home' | 'receipt' | 'houses' | 'cash' | 'settings';
+  icon: 'home' | 'receipt' | 'houses' | 'cash' | 'settings' | 'chart';
   href: string;
   tabs: CondominiumTab[];
 }
@@ -22,7 +22,8 @@ export function adminSections(slug: string): AdminSection[] {
     { id: 'inicio', label: 'Inicio', hint: 'Qué hacer hoy', icon: 'home', href: base, tabs: ['resumen'] },
     { id: 'recibos', label: 'Recibos', hint: 'Gastos y recibos', icon: 'receipt', href: `${base}/gastos`, tabs: ['gastos', 'facturas'] },
     { id: 'casas', label: 'Casas y pagos', hint: 'Pagos y deudas', icon: 'houses', href: `${base}/casas`, tabs: ['casas'] },
-    { id: 'historial', label: 'Historial', hint: 'Pagado y pendiente', icon: 'cash', href: `${base}/cobranza`, tabs: ['cobranza'] },
+    { id: 'historial', label: 'Historial', hint: 'Pagos, pendientes y caja', icon: 'cash', href: `${base}/cobranza`, tabs: ['cobranza'] },
+    { id: 'proyectos', label: 'Proyectos', hint: 'Presupuestos especiales', icon: 'chart', href: `${base}/proyectos`, tabs: ['proyectos'] },
     { id: 'ajustes', label: 'Ajustes', hint: 'Datos y alícuotas', icon: 'settings', href: `${base}/datos`, tabs: ['datos', 'alicuotas'] },
   ];
 }

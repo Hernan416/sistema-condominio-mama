@@ -8,16 +8,19 @@ import PaymentForm from '@/components/domain/PaymentForm.astro';
 import DebtForm from '@/components/domain/DebtForm.astro';
 import HouseProfileForm from '@/components/domain/HouseProfileForm.astro';
 import Alert from '@/components/ui/Alert.astro';
+import Button from '@/components/ui/Button.astro';
 import Disclosure from '@/components/ui/Disclosure.astro';
 import Icon from '@/components/ui/Icon.astro';
 import SummaryStrip from '@/components/ui/SummaryStrip.astro';
-import { getAccountService, getAppName } from '@/services/container';
+import { getAccountService, getAppName, getExchangeRates } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { EXTRAJUDICIAL_FEE_CONCEPT, EXTRAJUDICIAL_FEE_PERCENT } from '@/types/accounts';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
 import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
 import { debtAgeLabel } from '@/utils/ledger';
 import { monthsLabel } from '@/utils/months';
+import { roundCents } from '@/utils/billingCalculator';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
@@ -41,9 +44,19 @@ const ok = Astro.url.searchParams.get('ok')?.slice(0, 200) ?? null;
 const error = Astro.url.searchParams.get('error')?.slice(0, 300) ?? null;
 const action = Astro.url.searchParams.get('accion');
 const suggested = Astro.url.searchParams.get('monto') ?? (account.outstanding > 0 ? account.outstanding.toFixed(2) : null);
-const todayRate = rate ? String(Math.round(rate.usdToVes * 10000) / 10000).replace('.', ',') : null;
-const lastPayment = account.payments[0] ?? null;
 const date = (iso: string) => formatDateVe(new Date(`${iso}T12:00:00-04:00`));
+const fmtRate = (usdToVes: number) => String(Math.round(usdToVes * 10000) / 10000).replace('.', ',');
+const todayRate = rate ? fmtRate(rate.usdToVes) : null;
+// Últimos días con tasa guardada, para poder elegir la de un día específico al anotar el pago
+// (p. ej. si el residente pagó hace unos días y usó la tasa de ese momento, no la de hoy).
+const recentRates = (await getExchangeRates().listRecent(60)).map(({ day, rate: r }) => ({
+  day,
+  label: `${day === today ? 'Hoy' : date(day)} · Bs. ${fmtRate(r.usdToVes)}`,
+  rate: fmtRate(r.usdToVes),
+}));
+const lastPayment = account.payments[0] ?? null;
+const pendingFee = account.charges.find((c) => c.debt?.concept === EXTRAJUDICIAL_FEE_CONCEPT && c.outstanding > 0) ?? null;
+const feePreview = roundCents((account.outstanding * EXTRAJUDICIAL_FEE_PERCENT) / 100);
 ---
 
 <AdminLayout title={`Casa ${house.number} · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="casas">
@@ -109,10 +122,34 @@ const date = (iso: string) => formatDateVe(new Date(`${iso}T12:00:00-04:00`));
     <div class="flex flex-col gap-4">
       <h2 class="font-display text-3xl font-semibold">¿Qué desea hacer con esta casa?</h2>
       <Disclosure id="pagos" icon="cash" title="Anotar un pago o abono" subtitle="Cuando le pagan, aunque sea una parte. Se descuenta primero de la deuda más antigua." open={action === 'pago'}>
-        <PaymentForm action={`${base}/pagos`} today={today} suggestedAmount={suggested} todayRate={todayRate} />
+        <PaymentForm action={`${base}/pagos`} today={today} suggestedAmount={suggested} todayRate={todayRate} recentRates={recentRates} />
       </Disclosure>
       <Disclosure id="deudas" icon="plus" title="Agregar una deuda antigua" subtitle="Deudas de antes de usar el sistema, multas o reparaciones que esta casa debe.">
         <DebtForm action={`${base}/deudas`} today={today} />
+      </Disclosure>
+      <Disclosure id="cobranza" icon="alert" title="Cobranza extrajudicial" subtitle={`Honorarios de abogado: ${EXTRAJUDICIAL_FEE_PERCENT} % de la deuda actual de esta casa, sin alícuotas (no la pagan las demás).`}>
+        {
+          pendingFee ? (
+            <p class="text-base text-ink-muted">
+              Ya hay <strong class="text-ink">{formatUsd(pendingFee.outstanding)}</strong> de honorarios de cobranza extrajudicial pendientes de pago para esta casa.
+              Espere a que se salden (o elimínelos abajo, en el historial) antes de aplicar otros.
+            </p>
+          ) : account.outstanding > 0 ? (
+            <form
+              method="post"
+              action={`${base}/cobranza-extrajudicial`}
+              onsubmit={`return confirm('¿Aplicar honorarios de cobranza extrajudicial de ${formatUsd(feePreview)} (${EXTRAJUDICIAL_FEE_PERCENT}% de ${formatUsd(account.outstanding)} que debe esta casa)? Se cobra solo a esta casa, sin alícuotas.')`}
+            >
+              <p class="mb-3 text-base text-ink-muted">
+                Esta casa debe <strong class="text-ink">{formatUsd(account.outstanding)}</strong>. Los honorarios serían <strong class="text-ink">{formatUsd(feePreview)}</strong> ({EXTRAJUDICIAL_FEE_PERCENT} %),
+                cargados como una deuda nueva solo para esta casa.
+              </p>
+              <Button type="submit" size="md" variant="secondary" class="!w-auto px-6">Aplicar cobranza extrajudicial</Button>
+            </form>
+          ) : (
+            <p class="text-base text-ink-muted">Esta casa está al día: no corresponde cobranza extrajudicial.</p>
+          )
+        }
       </Disclosure>
       <Disclosure id="datos" icon="edit" title="Cambiar los datos de la casa" subtitle={`Dueño, cédula, teléfono, correo e inquilino. Usuario del vecino: ${house.username ?? 'sin usuario'}`}>
         <HouseProfileForm action={`${base}/perfil`} house={house} />

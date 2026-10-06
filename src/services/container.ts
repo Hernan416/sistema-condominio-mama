@@ -5,6 +5,7 @@ import type { AstroCookies } from 'astro';
 import { config } from '@/services/config';
 import type {
   BillingSheetRepository,
+  BudgetProjectRepository,
   CondominiumRepository,
   ExchangeRateProvider,
   ExchangeRateRepository,
@@ -19,6 +20,7 @@ import { CondominiumService } from '@/services/condominiums/CondominiumService';
 import { BillingService } from '@/services/billing/BillingService';
 import { AccountService } from '@/services/accounts/AccountService';
 import { MetricsService } from '@/services/metrics/MetricsService';
+import { BudgetService } from '@/services/budget/BudgetService';
 import { LoginService } from '@/services/auth/LoginService';
 import { PdfInvoiceFacade } from '@/services/pdf/PdfInvoiceFacade';
 import { ExchangeRateService } from '@/services/exchange/ExchangeRateService';
@@ -30,6 +32,7 @@ import { CurrencyRatesService } from '@/services/exchange/CurrencyRatesService';
 import { LocalJsonStore } from '@/services/local/LocalJsonStore';
 import { LocalBillingSheetRepository } from '@/services/repositories/LocalBillingSheetRepository';
 import { LocalHouseDebtRepository, LocalPaymentRepository } from '@/services/repositories/LocalAccountRepositories';
+import { LocalBudgetProjectRepository } from '@/services/repositories/LocalBudgetProjectRepository';
 import { LocalCondominiumRepository } from '@/services/repositories/LocalCondominiumRepository';
 import { LocalExchangeRateRepository } from '@/services/repositories/LocalExchangeRateRepository';
 import { LocalHouseRepository } from '@/services/repositories/LocalHouseRepository';
@@ -39,6 +42,7 @@ import { LocalUserRepository } from '@/services/repositories/LocalUserRepository
 import { getServiceClient } from '@/services/supabase/clients';
 import { SupabaseBillingSheetRepository } from '@/services/repositories/SupabaseBillingSheetRepository';
 import { SupabaseHouseDebtRepository, SupabasePaymentRepository } from '@/services/repositories/SupabaseAccountRepositories';
+import { SupabaseBudgetProjectRepository } from '@/services/repositories/SupabaseBudgetProjectRepository';
 import { SupabaseCondominiumRepository } from '@/services/repositories/SupabaseCondominiumRepository';
 import { SupabaseExchangeRateRepository } from '@/services/repositories/SupabaseExchangeRateRepository';
 import { SupabaseHouseRepository } from '@/services/repositories/SupabaseHouseRepository';
@@ -54,6 +58,7 @@ interface DataLayer {
   houseDebts: HouseDebtRepository;
   exchangeRates: ExchangeRateRepository;
   users: UserRepository;
+  budgetProjects: BudgetProjectRepository;
 }
 
 // ─── Fábricas por proveedor ────────────────────────────────────────────────────
@@ -69,6 +74,7 @@ const dataProviders: Record<typeof config.dataProvider, () => DataLayer> = {
       houseDebts: new LocalHouseDebtRepository(store),
       exchangeRates: new LocalExchangeRateRepository(store),
       users: new LocalUserRepository(store),
+      budgetProjects: new LocalBudgetProjectRepository(store),
     };
   },
   supabase() {
@@ -82,6 +88,7 @@ const dataProviders: Record<typeof config.dataProvider, () => DataLayer> = {
       houseDebts: new SupabaseHouseDebtRepository(db),
       exchangeRates: new SupabaseExchangeRateRepository(db),
       users: new SupabaseUserRepository(db),
+      budgetProjects: new SupabaseBudgetProjectRepository(db),
     };
   },
 };
@@ -98,6 +105,7 @@ let condominiumService: CondominiumService | null = null;
 let billingService: BillingService | null = null;
 let accountService: AccountService | null = null;
 let metricsService: MetricsService | null = null;
+let budgetService: BudgetService | null = null;
 let exchangeRates: ExchangeRateService | null = null;
 let currencyRates: CurrencyRatesService | null = null;
 
@@ -170,6 +178,15 @@ export function getMetricsService(): MetricsService {
     metricsService = new MetricsService(condominiums, invoices, payments, billingSheets, getAccountService());
   }
   return metricsService;
+}
+
+/** Proyectos con presupuesto (ej. "Pintura de fachada: $250"), casa por casa. */
+export function getBudgetService(): BudgetService {
+  if (!budgetService) {
+    const { houses, budgetProjects } = dataLayer();
+    budgetService = new BudgetService(budgetProjects, houses, getBillingService(), getAccountService());
+  }
+  return budgetService;
 }
 
 /** Login único (usuario + PIN) contra la tabla de usuarios. */

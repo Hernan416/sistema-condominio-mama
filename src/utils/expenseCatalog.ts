@@ -1,35 +1,13 @@
-// Conceptos habituales en recibos de condominio residenciales en Venezuela (sugerencias al escribir).
-// Fuentes: práctica de administradoras venezolanas; Hidrocaribe presta el servicio de agua en Nueva Esparta.
-export const EXPENSE_SUGGESTIONS: readonly string[] = [
-  'Vigilancia privada',
-  'Nómina de conserje',
-  'IVSS (Seguro Social)',
-  'FAOV (Ley de Vivienda)',
-  'INCES',
-  'Régimen de Paro Forzoso (RPE)',
-  'Provisión de prestaciones sociales',
-  'Bono de alimentación (cesta ticket)',
-  'Electricidad de áreas comunes (Corpoelec)',
-  'Agua (Hidrocaribe)',
-  'Cisterna de agua',
-  'Aseo urbano',
-  'Aseo y limpieza de áreas comunes',
-  'Mantenimiento del portón eléctrico',
-  'Mantenimiento de bombas e hidroneumático',
-  'Mantenimiento de áreas verdes',
-  'Fumigación',
-  'Reparaciones menores',
-  'Artículos de limpieza',
-  'Honorarios de administración',
-  'Comisiones bancarias',
-  'Papelería y fotocopias',
-];
-
-export const INCOME_SUGGESTIONS: readonly string[] = [
-  'Alquiler del salón de fiestas',
-  'Alquiler de puesto de estacionamiento',
-  'Reintegro de seguro',
-  'Intereses bancarios',
+// Categorías habituales para agrupar gastos de condominio (sugerencias al escribir: el campo
+// sigue siendo libre, esto solo ahorra escribir las que ya se usan siempre).
+export const EXPENSE_CATEGORY_SUGGESTIONS: readonly string[] = [
+  'Personal y nómina',
+  'Servicios públicos',
+  'Mantenimiento y limpieza',
+  'Seguridad',
+  'Administración y honorarios',
+  'Reparaciones',
+  'Otros',
 ];
 
 export const UNIT_CHARGE_SUGGESTIONS: readonly string[] = [

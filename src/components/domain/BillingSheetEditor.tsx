@@ -43,9 +43,7 @@ export default function BillingSheetEditor(props: Props) {
         <PeriodPicker period={s.period} onChange={s.changePeriod} disabled={s.saving} />
         {s.origin !== 'saved' && !s.loading && (
           <p role="status" className="max-w-xl rounded-xl bg-warning-tint px-4 py-3 text-base font-bold text-warning ring-1 ring-inset ring-warning/25">
-            {s.origin === 'copied'
-              ? 'Copiamos los gastos del último mes para ahorrarle trabajo. Revise los montos y toque «Guardar gastos» al final.'
-              : 'Este mes todavía no tiene gastos. Agréguelos y toque «Guardar gastos» al final.'}
+            Este mes todavía no tiene gastos. Agréguelos y toque «Guardar gastos» al final.
           </p>
         )}
       </div>

@@ -29,6 +29,11 @@ export interface Payment {
   createdAt: Date | null;
 }
 
+/** Concepto fijo de la deuda que crea `AccountService.applyExtrajudicialFee`: sirve para
+ * reconocerla luego (no cobrar dos veces mientras haya una pendiente) sin otra marca en la fila. */
+export const EXTRAJUDICIAL_FEE_CONCEPT = 'Honorarios de cobranza extrajudicial';
+export const EXTRAJUDICIAL_FEE_PERCENT = 20;
+
 /** Deuda registrada a mano: saldos anteriores al sistema, acuerdos, reparaciones… */
 export interface HouseDebt {
   id: string;

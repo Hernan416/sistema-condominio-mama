@@ -1,0 +1,62 @@
+---
+// Crear un proyecto con presupuesto (ej. "Pintura de fachada: $250"): se reparte por alícuota
+// y se factura como cuota extraordinaria, todo en un mes o repartido en varios.
+import Button from '@/components/ui/Button.astro';
+import FormField from '@/components/ui/FormField.astro';
+import FormSelect from '@/components/ui/FormSelect.astro';
+
+interface Props {
+  action: string;
+  months: { value: number; label: string }[];
+  years: string[];
+  defaultMonth: number;
+  defaultYear: number;
+}
+
+const { action, months, years, defaultMonth, defaultYear } = Astro.props;
+const monthOptions = months.map((m) => ({ value: String(m.value), label: m.label }));
+const yearOptions = years.map((y) => ({ value: y, label: y }));
+---
+
+<form method="post" action={action} class="flex flex-col gap-4" data-project-form>
+  <FormField id="pr-name" name="name" label="Nombre del proyecto" placeholder="Ej.: Pintura de fachada" maxlength={120} required />
+  <FormField id="pr-amount" name="targetAmount" label="Presupuesto (meta en USD)" inputmode="decimal" placeholder="0,00" required />
+
+  <fieldset class="flex flex-wrap gap-2">
+    <legend class="mb-1.5 text-sm font-bold text-ink-muted">Cómo se factura a las casas</legend>
+    {
+      [
+        { value: 'single', label: 'Todo en un mes' },
+        { value: 'spread', label: 'Repartido en varios meses' },
+      ].map((o) => (
+        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-surface px-4 text-base font-bold ring-1 ring-inset ring-line has-[:checked]:bg-accent-tint has-[:checked]:text-accent-strong has-[:checked]:ring-accent">
+          <input type="radio" name="billingMode" value={o.value} checked={o.value === 'single'} class="accent-[var(--color-accent)]" />
+          {o.label}
+        </label>
+      ))
+    }
+  </fieldset>
+
+  <div class="grid gap-4 sm:grid-cols-3">
+    <FormSelect id="pr-month" name="startMonth" label="Mes en que empieza" value={String(defaultMonth)} options={monthOptions} />
+    <FormSelect id="pr-year" name="startYear" label="Año" value={String(defaultYear)} options={yearOptions} />
+    <div data-spread-only>
+      <FormField id="pr-months" name="monthsCount" label="¿En cuántos meses?" inputmode="numeric" value="3" hint="Se reparte en partes iguales." />
+    </div>
+  </div>
+
+  <div><Button type="submit" size="md" class="!w-auto px-6">Crear proyecto</Button></div>
+</form>
+
+<script>
+  // Mejora progresiva: "¿en cuántos meses?" solo aplica si se reparte en varios meses.
+  for (const form of document.querySelectorAll<HTMLFormElement>('[data-project-form]')) {
+    const monthsField = form.querySelector<HTMLElement>('[data-spread-only]');
+    const sync = () => {
+      const spread = form.querySelector<HTMLInputElement>('input[name="billingMode"]:checked')?.value === 'spread';
+      if (monthsField) monthsField.hidden = !spread;
+    };
+    form.addEventListener('change', sync);
+    sync();
+  }
+</script>

@@ -18,6 +18,8 @@ import type { AliquotScheme } from '@/utils/aliquotScheme';
 import type { HouseDebt, Payment } from '@/types/accounts';
 import type { NewDebt, NewPayment } from '@/adapters/accountAdapter';
 import type { PreviousDebt } from '@/utils/billingCalculator';
+import type { BudgetProject } from '@/types/budget';
+import type { NewBudgetProject } from '@/adapters/budgetAdapter';
 import type { ChargeState } from '@/utils/ledger';
 
 export interface CondominiumRepository {
@@ -73,6 +75,15 @@ export interface HouseDebtRepository {
   delete(id: string): Promise<void>;
 }
 
+/** Proyectos con presupuesto (ej. "Pintura de fachada: $250"). */
+export interface BudgetProjectRepository {
+  listByCondominium(condominiumId: string): Promise<BudgetProject[]>;
+  findById(id: string): Promise<BudgetProject | null>;
+  create(project: NewBudgetProject): Promise<BudgetProject>;
+  setCollectionMode(id: string, mode: BudgetProject['collectionMode']): Promise<BudgetProject>;
+  delete(id: string): Promise<void>;
+}
+
 /** Lo que la facturación necesita del libro de cuentas (lo implementa AccountService). */
 export interface AccountLedger {
   /** Deuda anterior de cada casa para el recibo de `period`. */
@@ -92,6 +103,8 @@ export interface ExchangeRateRepository {
   /** La más reciente guardada (respaldo si la API falla). */
   findLatest(): Promise<ExchangeRate | null>;
   saveForDay(day: string, rate: ExchangeRate): Promise<void>;
+  /** Últimos días con tasa guardada, del más reciente al más antiguo (para elegirla al anotar un pago). */
+  listRecent(limit: number): Promise<{ day: string; rate: ExchangeRate }[]>;
 }
 
 /** Tasa lista para usar: nunca lanza; null si no hay ninguna disponible. */

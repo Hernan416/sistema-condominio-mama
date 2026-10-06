@@ -81,6 +81,7 @@ export function buildLocalSeed(): LocalDatabase {
     payments: [],
     house_debts: [],
     users: [userRecord({ username: DEMO_ADMIN.username, pin_hash: hashPin(DEMO_ADMIN.pin), role: 'admin', display_name: DEMO_ADMIN.name, house_id: null })],
+    budget_projects: [],
   };
 
   for (const c of CONDOMINIUM_LAYOUT) {

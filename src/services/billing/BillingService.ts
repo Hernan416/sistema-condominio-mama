@@ -8,7 +8,7 @@ import { DEFAULT_SETTINGS } from '@/adapters/condominiumAdapter';
 import { calculateCondominiumInvoices } from '@/utils/billingCalculator';
 import { dueDateFor } from '@/utils/dueDate';
 
-export type SheetOrigin = 'saved' | 'copied' | 'new';
+export type SheetOrigin = 'saved' | 'new';
 
 /** Lo que la administradora puede editar de la relación de gastos. */
 export interface BillingSheetInput {
@@ -46,8 +46,9 @@ export class BillingService {
   ) {}
 
   /**
-   * La relación de gastos del periodo. Si aún no existe, se propone una copia del último mes
-   * con gastos (casi todos se repiten), sin guardarla hasta que la administradora la confirme.
+   * La relación de gastos del periodo. Si aún no existe, se propone en blanco (sin gastos: la
+   * administradora los escribe de nuevo cada mes), salvo los cargos individuales marcados como
+   * "cada mes" y el % de fondo de reserva / vencimiento, que sí se heredan del mes anterior.
    */
   async getSheet(condominium: Condominium, period: BillingPeriod): Promise<{ sheet: BillingSheet; origin: SheetOrigin }> {
     const saved = await this.sheets.find(condominium.id, period);
@@ -62,13 +63,11 @@ export class BillingService {
       dueDate: dueDateFor(period, settings.dueDay),
       generalNote: null,
       unitNotes: {},
-      // Se copian los gastos del condominio (con sus ajustes por casa) y los cargos marcados
-      // como "cada mes". Los demás cargos y las notas son solo del mes en que se crearon.
-      expenses: (previous?.expenses ?? []).map((e) => ({ ...e, id: randomUUID(), overrides: { ...(e.overrides ?? {}) } })),
+      expenses: [],
       unitCharges: (previous?.unitCharges ?? []).filter((c) => c.recurring).map((c) => ({ ...c, id: randomUUID() })),
       updatedAt: null,
     };
-    return { sheet: base, origin: previous ? 'copied' : 'new' };
+    return { sheet: base, origin: 'new' };
   }
 
   async saveSheet(condominium: Condominium, period: BillingPeriod, input: BillingSheetInput): Promise<BillingSheet> {
@@ -89,6 +88,7 @@ export class BillingService {
         ...e,
         id: e.id ?? randomUUID(),
         concept: e.concept.trim(),
+        category: e.category?.trim() || null,
         // Ajustes de casas que ya no son del condominio se descartan.
         overrides: Object.fromEntries(Object.entries(e.overrides ?? {}).filter(([id]) => houseIds.has(id))),
       })),
@@ -117,7 +117,16 @@ export class BillingService {
       if (invoice?.imported && invoice.detail) {
         return { house, invoice, breakdown: invoice.detail, outdated: false, payment: states.get(invoice.id) ?? null };
       }
-      const outdated = !!invoice && invoice.status === 'generated' && Math.abs(invoice.amount - breakdown.monthTotal) >= 0.005;
+      // "Desactualizado" no es solo que cambió la relación de gastos: también si la deuda
+      // anterior congelada en el recibo ya no coincide con el libro de cuentas actual (p. ej.
+      // se registró una deuda atrasada, o se editó/borró un pago, después de emitirlo). Si no
+      // se detecta esto, el recibo emitido puede seguir diciendo "al día" cuando ya no lo está.
+      const outdated =
+        !!invoice &&
+        invoice.status === 'generated' &&
+        (Math.abs(invoice.amount - breakdown.monthTotal) >= 0.005 ||
+          Math.abs((invoice.detail?.previousDebt ?? 0) - breakdown.previousDebt) >= 0.005 ||
+          (invoice.detail?.previousDebtCount ?? 0) !== breakdown.previousDebtCount);
       return { house, invoice, breakdown, outdated, payment: invoice ? (states.get(invoice.id) ?? null) : null };
     });
     return { sheet, origin, units };

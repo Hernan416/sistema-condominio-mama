@@ -1,0 +1,85 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import ProjectForm from '@/components/domain/ProjectForm.astro';
+import Disclosure from '@/components/ui/Disclosure.astro';
+import Meter from '@/components/ui/Meter.astro';
+import Alert from '@/components/ui/Alert.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { getAppName, getBudgetService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { formatUsd } from '@/utils/currency';
+import { allMonths, currentPeriod, formatPeriod } from '@/utils/months';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const today = currentPeriod();
+const years = [today.year - 1, today.year, today.year + 1, today.year + 2].map(String);
+const budget = getBudgetService();
+const projects = await budget.listProjects(condominium);
+const summaries = await Promise.all(projects.map((p) => budget.progress(condominium, p.id, today)));
+
+const ok = Astro.url.searchParams.get('ok')?.slice(0, 200) ?? null;
+const error = Astro.url.searchParams.get('error')?.slice(0, 300) ?? null;
+---
+
+<AdminLayout title={`Proyectos · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="proyectos">
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="proyectos"
+    rate={toExchangeRateView(rate)}
+    description="Proyectos con presupuesto (ej. pintar la fachada, reparar el portón): cuánto se ha recaudado de la meta, casa por casa."
+  />
+
+  <div class="flex flex-col gap-6">
+    {ok && <Alert tone="info">{ok}</Alert>}
+    {error && <Alert>{error}</Alert>}
+
+    <Disclosure id="nuevo" icon="plus" title="Crear un proyecto nuevo" subtitle="Defina la meta y cómo se factura; el sistema la reparte por alícuota y la agrega a los recibos del mes o meses elegidos.">
+      <ProjectForm action={`/api/admin/${condominium.slug}/proyectos`} months={allMonths()} years={years} defaultMonth={today.month} defaultYear={today.year} />
+    </Disclosure>
+
+    {
+      projects.length === 0 ? (
+        <div class="rounded-[var(--radius-card)] border-2 border-dashed border-line p-10 text-center text-lg text-ink-muted">
+          Todavía no hay proyectos con presupuesto. Cree el primero arriba.
+        </div>
+      ) : (
+        <ul class="flex flex-col gap-4">
+          {projects.map((project, i) => {
+            const s = summaries[i];
+            const pct = s.targetTotal > 0 ? Math.round((s.collectedTotal / s.targetTotal) * 100) : 0;
+            return (
+              <li class="rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
+                <a href={`/admin/${condominium.slug}/proyectos/${project.id}`} class="flex flex-wrap items-start justify-between gap-4 no-underline">
+                  <div>
+                    <p class="font-display text-2xl font-semibold text-ink">{project.name}</p>
+                    <p class="text-base text-ink-muted">
+                      Meta {formatUsd(project.targetAmount)} ·{' '}
+                      {project.billingMode === 'single' ? `facturado en ${formatPeriod(project.startMonth, project.startYear)}` : `repartido en ${project.monthsCount} meses desde ${formatPeriod(project.startMonth, project.startYear)}`}
+                    </p>
+                  </div>
+                  <span class="inline-flex items-center gap-2 text-base font-bold text-accent">
+                    Ver detalle <Icon name="arrow-right" size={18} />
+                  </span>
+                </a>
+                <div class="mt-4 flex flex-col gap-2">
+                  <div class="flex items-baseline justify-between text-base">
+                    <span class="font-bold text-ink">{formatUsd(s.collectedTotal)} recaudados de {formatUsd(s.targetTotal)}</span>
+                    <span class="font-bold text-ink-muted">{pct}%</span>
+                  </div>
+                  <Meter value={s.collectedTotal} max={s.targetTotal} label={`Recaudado de ${project.name}`} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )
+    }
+  </div>
+</AdminLayout>

@@ -3,7 +3,7 @@ import { InlineSelect } from '@/components/ui/InlineSelect';
 import { MoneyInput } from '@/components/ui/MoneyInput';
 import { TextInput } from '@/components/ui/TextInput';
 import type { BuildingExpense, Distribution, ExpenseKind } from '@/types/billing';
-import { EXPENSE_SUGGESTIONS, INCOME_SUGGESTIONS } from '@/utils/expenseCatalog';
+import { EXPENSE_CATEGORY_SUGGESTIONS } from '@/utils/expenseCatalog';
 import { formatUsd } from '@/utils/currency';
 
 interface Totals {
@@ -21,7 +21,7 @@ interface Props {
   reserveFundPercent: number;
   disabled: boolean;
   onAdd: (kind: ExpenseKind) => void;
-  onChange: (id: string, patch: Partial<Pick<BuildingExpense, 'concept' | 'kind' | 'distribution'>>) => void;
+  onChange: (id: string, patch: Partial<Pick<BuildingExpense, 'concept' | 'category' | 'kind' | 'distribution'>>) => void;
   onAmountChange: (id: string, text: string) => void;
   onRemove: (id: string) => void;
 }
@@ -37,6 +37,9 @@ const DISTRIBUTION_OPTIONS: { value: Distribution; label: string }[] = [
 ];
 
 export function ExpenseTable({ expenses, texts, invalidIds, totals, reserveFundPercent, disabled, onAdd, onChange, onAmountChange, onRemove }: Props) {
+  // Categorías para reutilizar o crear una nueva: las ya usadas este mes + unas sugeridas.
+  const categoryOptions = [...new Set([...expenses.map((e) => e.category?.trim()).filter((c): c is string => !!c), ...EXPENSE_CATEGORY_SUGGESTIONS])];
+
   return (
     <section aria-labelledby="expenses-title" className="rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line p-5">
@@ -53,8 +56,7 @@ export function ExpenseTable({ expenses, texts, invalidIds, totals, reserveFundP
         </div>
       </div>
 
-      <datalist id="expense-suggestions">{EXPENSE_SUGGESTIONS.map((s) => <option key={s} value={s} />)}</datalist>
-      <datalist id="income-suggestions">{INCOME_SUGGESTIONS.map((s) => <option key={s} value={s} />)}</datalist>
+      <datalist id="expense-category-suggestions">{categoryOptions.map((c) => <option key={c} value={c} />)}</datalist>
 
       {expenses.length === 0 ? (
         <p className="p-8 text-center text-base text-ink-muted">Aún no hay gastos este mes. Agregue el primero con los botones de arriba.</p>
@@ -63,30 +65,43 @@ export function ExpenseTable({ expenses, texts, invalidIds, totals, reserveFundP
           {expenses.map((e) => {
             const invalid = invalidIds.has(e.id);
             return (
-              <li key={e.id} className="grid items-center gap-2 px-5 py-3 md:grid-cols-[minmax(0,1fr)_12rem_10rem_9.5rem_auto]">
-                <TextInput
-                  aria-label="Concepto"
-                  list={e.kind === 'income' ? 'income-suggestions' : 'expense-suggestions'}
-                  placeholder={e.kind === 'income' ? 'Ej.: Alquiler del salón' : 'Ej.: Vigilancia privada'}
-                  value={e.concept}
-                  maxLength={120}
-                  invalid={invalid && !e.concept.trim()}
-                  disabled={disabled}
-                  onValueChange={(concept) => onChange(e.id, { concept })}
-                />
-                <InlineSelect aria-label="Tipo" value={e.kind} options={KIND_OPTIONS} disabled={disabled} onValueChange={(kind) => onChange(e.id, { kind })} />
-                <InlineSelect aria-label="Reparto" value={e.distribution} options={DISTRIBUTION_OPTIONS} disabled={disabled} onValueChange={(distribution) => onChange(e.id, { distribution })} />
-                <MoneyInput
-                  aria-label="Monto total en USD"
-                  value={texts[e.id] ?? ''}
-                  placeholder="0,00"
-                  highlighted={invalid}
-                  disabled={disabled}
-                  onValueChange={(t) => onAmountChange(e.id, t)}
-                />
-                <ActionButton size="sm" variant="ghost" disabled={disabled} onClick={() => onRemove(e.id)} aria-label={`Eliminar ${e.concept || 'gasto'}`}>
-                  Quitar
-                </ActionButton>
+              <li key={e.id} className="flex flex-col gap-2 px-5 py-3">
+                <div className="flex items-start gap-2">
+                  <TextInput
+                    aria-label="Concepto"
+                    placeholder={e.kind === 'income' ? 'Ej.: Alquiler del salón de fiestas' : 'Ej.: Vigilancia privada de octubre'}
+                    value={e.concept}
+                    maxLength={120}
+                    invalid={invalid && !e.concept.trim()}
+                    disabled={disabled}
+                    onValueChange={(concept) => onChange(e.id, { concept })}
+                    className="flex-1"
+                  />
+                  <ActionButton size="sm" variant="ghost" disabled={disabled} onClick={() => onRemove(e.id)} aria-label={`Eliminar ${e.concept || 'gasto'}`}>
+                    Quitar
+                  </ActionButton>
+                </div>
+                <div className="grid items-center gap-2 md:grid-cols-[minmax(0,1fr)_12rem_10rem_9.5rem]">
+                  <TextInput
+                    aria-label="Categoría"
+                    list="expense-category-suggestions"
+                    placeholder="Categoría (ej.: Servicios)"
+                    value={e.category ?? ''}
+                    maxLength={60}
+                    disabled={disabled}
+                    onValueChange={(category) => onChange(e.id, { category: category || null })}
+                  />
+                  <InlineSelect aria-label="Tipo" value={e.kind} options={KIND_OPTIONS} disabled={disabled} onValueChange={(kind) => onChange(e.id, { kind })} />
+                  <InlineSelect aria-label="Reparto" value={e.distribution} options={DISTRIBUTION_OPTIONS} disabled={disabled} onValueChange={(distribution) => onChange(e.id, { distribution })} />
+                  <MoneyInput
+                    aria-label="Monto total en USD"
+                    value={texts[e.id] ?? ''}
+                    placeholder="0,00"
+                    highlighted={invalid}
+                    disabled={disabled}
+                    onValueChange={(t) => onAmountChange(e.id, t)}
+                  />
+                </div>
               </li>
             );
           })}

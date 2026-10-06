@@ -12,9 +12,11 @@ interface Props {
   suggestedAmount: string | null;
   /** Tasa BCV de hoy, formato "855,6625". */
   todayRate: string | null;
+  /** Últimos días con tasa guardada, del más reciente al más antiguo, para elegir la de un día puntual. */
+  recentRates: { day: string; label: string; rate: string }[];
 }
 
-const { action, today, suggestedAmount, todayRate } = Astro.props;
+const { action, today, suggestedAmount, todayRate, recentRates } = Astro.props;
 const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({ value, label }));
 ---
 
@@ -36,7 +38,51 @@ const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
 
   <div class="grid gap-4 sm:grid-cols-2">
     <FormField id="pay-amount" name="amount" label="Monto" value={suggestedAmount?.replace('.', ',') ?? ''} inputmode="decimal" placeholder="0,00" required />
-    <FormField id="pay-rate" name="exchangeRate" label="Tasa Bs. por USD (solo si pagó en Bs.)" value={todayRate ?? ''} inputmode="decimal" hint="Tasa BCV del día del pago. Se propone la de hoy." />
+    <div class="flex flex-col gap-2" data-rate-group>
+      {
+        recentRates.length > 0 && (
+          <div class="flex flex-col gap-1.5">
+            <label for="pay-rate-day" class="text-sm font-bold text-ink-muted">
+              Tasa de un día específico
+            </label>
+            <div class="relative">
+              <select
+                id="pay-rate-day"
+                data-rate-day-select
+                class="min-h-11 w-full cursor-pointer appearance-none rounded-xl bg-surface pl-3 pr-9 text-base text-ink ring-1 ring-inset ring-line hover:ring-line-strong focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="">Tasa personalizada (escríbala abajo)</option>
+                {recentRates.map((r) => (
+                  <option value={r.day} data-rate={r.rate}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <svg
+                class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+        )
+      }
+      <FormField
+        id="pay-rate"
+        name="exchangeRate"
+        label="Tasa Bs. por USD (solo si pagó en Bs.)"
+        value={todayRate ?? ''}
+        inputmode="decimal"
+        hint="Tasa BCV del día del pago. Se propone la de hoy, o elija arriba la de otro día."
+      />
+    </div>
     <FormField id="pay-date" name="date" type="date" label="Fecha del pago" value={today} required />
     <FormSelect id="pay-method" name="method" label="Forma de pago" value="transfer" options={methods} />
     <FormField id="pay-ref" name="reference" label="N° de referencia" placeholder="Ej.: 0012345678" maxlength={60} />
@@ -50,7 +96,7 @@ const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
 <script>
   // Mejora progresiva: la tasa solo se muestra si pagó en bolívares.
   for (const form of document.querySelectorAll<HTMLFormElement>('[data-payment-form]')) {
-    const rate = form.querySelector<HTMLElement>('#pay-rate')?.closest<HTMLElement>('div.flex');
+    const rate = form.querySelector<HTMLElement>('[data-rate-group]');
     const sync = () => {
       const ves = form.querySelector<HTMLInputElement>('input[name="currency"]:checked')?.value === 'VES';
       if (rate) rate.hidden = !ves;
@@ -59,5 +105,13 @@ const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
     };
     form.addEventListener('change', sync);
     sync();
+
+    // Elegir un día de la lista rellena la tasa (que se puede seguir ajustando a mano después).
+    const daySelect = form.querySelector<HTMLSelectElement>('[data-rate-day-select]');
+    const rateInput = form.querySelector<HTMLInputElement>('#pay-rate');
+    daySelect?.addEventListener('change', () => {
+      const chosen = daySelect.selectedOptions[0]?.dataset.rate;
+      if (chosen && rateInput) rateInput.value = chosen;
+    });
   }
 </script>

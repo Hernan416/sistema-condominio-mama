@@ -24,12 +24,23 @@ export function parseBillingSheetInput(body: unknown): BillingSheetInput | null 
     if (!isObj(e)) return null;
     const concept = str(e.concept);
     const amount = num(e.amount);
-    if (concept === null || amount === null) return null;
+    const category = optStr(e.category);
+    const projectId = optStr(e.projectId);
+    if (concept === null || amount === null || category === undefined || projectId === undefined) return null;
     if (e.kind !== 'ordinary' && e.kind !== 'extraordinary' && e.kind !== 'income') return null;
     if (e.distribution !== 'aliquot' && e.distribution !== 'equal') return null;
     const overrides = parseOverrides(e.overrides);
     if (overrides === null) return null;
-    expenses.push({ id: str(e.id) ?? undefined, concept: concept.slice(0, 120), amount, kind: e.kind, distribution: e.distribution, overrides });
+    expenses.push({
+      id: str(e.id) ?? undefined,
+      concept: concept.slice(0, 120),
+      category: category?.slice(0, 60) ?? null,
+      amount,
+      kind: e.kind,
+      distribution: e.distribution,
+      overrides,
+      projectId,
+    });
   }
 
   const unitCharges: BillingSheetInput['unitCharges'] = [];

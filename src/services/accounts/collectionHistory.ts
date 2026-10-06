@@ -10,6 +10,8 @@ export interface HistoryFilters {
   status: ChargeFilter;
   /** "YYYY" o null = todos los años. */
   year: string | null;
+  /** 1-12 o null = todos los meses (solo tiene sentido si también hay año). */
+  month: number | null;
   houseId: string | null;
 }
 
@@ -25,13 +27,18 @@ export interface PaymentHistoryRow {
   payment: AccountPayment;
 }
 
+/** "YYYY-MM" del cargo/pago, para comparar contra año+mes del filtro. */
+const yearMonth = (date: string) => date.slice(0, 7);
+const periodFilter = (f: Pick<HistoryFilters, 'year' | 'month'>) => (f.year ? `${f.year}-${String(f.month ?? 0).padStart(2, '0')}` : null);
+
 export function chargeHistory(accounts: HouseAccount[], f: HistoryFilters) {
+  const period = f.month ? periodFilter(f) : null;
   const rows: ChargeHistoryRow[] = [];
   for (const a of accounts) {
     if (f.houseId && a.house.id !== f.houseId) continue;
     const lastPaid = lastPaymentByCharge(a);
     for (const c of a.charges) {
-      if (f.year && !c.date.startsWith(f.year)) continue;
+      if (period ? yearMonth(c.date) !== period : f.year && !c.date.startsWith(f.year)) continue;
       if (f.status === 'pending' && c.outstanding <= 0) continue;
       if (f.status === 'partial' && c.status !== 'partial') continue;
       if (f.status === 'paid' && c.status !== 'paid') continue;
@@ -53,11 +60,14 @@ export function chargeHistory(accounts: HouseAccount[], f: HistoryFilters) {
   };
 }
 
-export function paymentHistory(accounts: HouseAccount[], f: Pick<HistoryFilters, 'year' | 'houseId'>) {
+export function paymentHistory(accounts: HouseAccount[], f: Pick<HistoryFilters, 'year' | 'month' | 'houseId'>) {
+  const period = f.month ? periodFilter(f) : null;
   const rows: PaymentHistoryRow[] = [];
   for (const a of accounts) {
     if (f.houseId && a.house.id !== f.houseId) continue;
-    for (const p of a.payments) if (!f.year || p.date.startsWith(f.year)) rows.push({ house: a.house, payment: p });
+    for (const p of a.payments) {
+      if (period ? yearMonth(p.date) === period : !f.year || p.date.startsWith(f.year)) rows.push({ house: a.house, payment: p });
+    }
   }
   rows.sort((x, y) => y.payment.date.localeCompare(x.payment.date));
   return { rows, total: roundCents(rows.reduce((s, r) => s + r.payment.amount, 0)) };

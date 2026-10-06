@@ -22,11 +22,16 @@ export type ExpenseOverride = { mode: 'exempt' } | { mode: 'fixed'; amount: numb
 export interface BuildingExpense {
   id: string;
   concept: string;
+  /** Agrupador libre (ej. "Servicios", "Nómina"): la administradora escribe el que quiera.
+   * Ausente en gastos guardados antes de que existiera este campo. */
+  category?: string | null;
   amount: number;
   kind: ExpenseKind;
   distribution: Distribution;
   /** Ajustes por unidad (clave: houseId). Las unidades sin ajuste pagan según el reparto. */
   overrides?: Record<string, ExpenseOverride>;
+  /** Si este gasto es la cuota de un mes de un proyecto con presupuesto (BudgetProject.id). */
+  projectId?: string | null;
 }
 
 /** Cargo a una sola unidad (gasto no común): multas, reparaciones… Un monto negativo es un abono (crédito) a esa unidad. */
@@ -66,6 +71,8 @@ export interface InvoiceLine {
   buildingAmount: number | null;
   /** Lo que le corresponde a esta unidad. */
   unitAmount: number;
+  /** Si viene de la cuota de un mes de un proyecto con presupuesto (BudgetProject.id). */
+  projectId?: string | null;
 }
 
 /** Desglose calculado de una factura. Se guarda tal cual al generarla (el PDF no cambia después). */

@@ -1,0 +1,134 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import SummaryStrip from '@/components/ui/SummaryStrip.astro';
+import FormSelect from '@/components/ui/FormSelect.astro';
+import Button from '@/components/ui/Button.astro';
+import Meter from '@/components/ui/Meter.astro';
+import Alert from '@/components/ui/Alert.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { getAppName, getBudgetService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { formatUsd } from '@/utils/currency';
+import { allMonths, currentPeriod, formatPeriod } from '@/utils/months';
+import { NotFoundError } from '@/services/errors';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const projectId = Astro.params.id ?? '';
+const q = Astro.url.searchParams;
+const today = currentPeriod();
+const month = Number(q.get('mes')) || today.month;
+const year = Number(q.get('anio')) || today.year;
+const years = [today.year - 1, today.year, today.year + 1, today.year + 2].map(String);
+
+const budget = getBudgetService();
+let progress;
+try {
+  progress = await budget.progress(condominium, projectId, { month, year });
+} catch (e) {
+  if (e instanceof NotFoundError) return Astro.redirect(`/admin/${condominium.slug}/proyectos`);
+  throw e;
+}
+const { project } = progress;
+const pct = progress.targetTotal > 0 ? Math.round((progress.collectedTotal / progress.targetTotal) * 100) : 0;
+
+const ok = Astro.url.searchParams.get('ok')?.slice(0, 200) ?? null;
+const error = Astro.url.searchParams.get('error')?.slice(0, 300) ?? null;
+const base = `/api/admin/${condominium.slug}/proyectos/${project.id}`;
+---
+
+<AdminLayout title={`${project.name} · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="proyectos">
+  <CondominiumHeader
+    name={condominium.name}
+    title={project.name}
+    slug={condominium.slug}
+    city={null}
+    active="proyectos"
+    rate={toExchangeRateView(rate)}
+    description={project.billingMode === 'single' ? `Facturado todo en ${formatPeriod(project.startMonth, project.startYear)}.` : `Repartido en ${project.monthsCount} meses desde ${formatPeriod(project.startMonth, project.startYear)}.`}
+  />
+
+  <a href={`/admin/${condominium.slug}/proyectos`} class="mb-6 inline-flex min-h-11 items-center gap-2 text-base font-bold text-accent no-underline hover:underline">
+    <Icon name="arrow-left" size={18} /> Volver a proyectos
+  </a>
+
+  <div class="flex flex-col gap-6">
+    {ok && <Alert tone="info">{ok}</Alert>}
+    {error && <Alert>{error}</Alert>}
+
+    <form method="get" class="flex flex-wrap items-end gap-3">
+      <FormSelect id="f-mes" name="mes" label="Ver recaudado hasta el mes" value={String(month)} options={allMonths().map((m) => ({ value: String(m.value), label: m.label }))} />
+      <FormSelect id="f-anio" name="anio" label="Año" value={String(year)} options={years.map((y) => ({ value: y, label: y }))} />
+      <Button type="submit" size="md" variant="secondary">Ver</Button>
+    </form>
+
+    <SummaryStrip
+      items={[
+        { label: 'Meta del proyecto', value: formatUsd(progress.targetTotal) },
+        { label: `Facturado a ${formatPeriod(month, year).toLowerCase()}`, value: formatUsd(progress.billedTotal) },
+        { label: 'Recaudado', value: formatUsd(progress.collectedTotal), tone: 'accent' },
+        { label: 'Progreso', value: `${pct}%` },
+      ]}
+    />
+    <Meter value={progress.collectedTotal} max={progress.targetTotal} label={`Recaudado de ${project.name}`} />
+
+    <div class="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <div>
+        <p class="text-base font-bold text-ink">
+          Modo de cálculo: {project.collectionMode === 'all_or_nothing' ? 'Todo o nada' : 'Proporcional al pago'}
+        </p>
+        <p class="text-sm text-ink-muted">
+          {project.collectionMode === 'all_or_nothing'
+            ? 'La cuota del proyecto solo se cuenta recaudada cuando el recibo completo de ese mes queda 100 % pagado.'
+            : 'Si una casa pagó el 80 % de su recibo del mes, se cuenta el 80 % de su cuota del proyecto como recaudado.'}
+        </p>
+      </div>
+      <form method="post" action={`${base}/asignacion`}>
+        <input type="hidden" name="mode" value={project.collectionMode === 'all_or_nothing' ? 'proportional' : 'all_or_nothing'} />
+        <Button type="submit" size="md" variant="secondary" class="!w-auto px-6">Cambiar asignación presupuestaria</Button>
+      </form>
+    </div>
+
+    <div class="relative overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <table class="w-full min-w-[680px] text-base">
+        <thead class="bg-canvas/60">
+          <tr class="border-b border-line">
+            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted">Casa</th>
+            <th scope="col" class="px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted">Alícuota</th>
+            <th scope="col" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.08em] text-ink-muted">Meta</th>
+            <th scope="col" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.08em] text-ink-muted">Facturado</th>
+            <th scope="col" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.08em] text-ink-muted">Recaudado</th>
+            <th scope="col" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-[0.08em] text-ink-muted">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {progress.houses.map((h) => (
+            <tr class="border-b border-line last:border-b-0 hover:bg-canvas/50">
+              <td class="whitespace-nowrap px-4 py-3">
+                <a href={`/admin/${condominium.slug}/casas/${h.houseId}`} class="font-bold text-ink no-underline hover:underline">Casa {h.houseNumber}</a>
+                <span class="block max-w-44 truncate text-xs text-ink-muted">{h.ownerName ?? ''}</span>
+              </td>
+              <td class="tabular whitespace-nowrap px-4 py-3 text-ink-muted">{h.aliquot.toFixed(2)} %</td>
+              <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold">{formatUsd(h.target)}</td>
+              <td class="tabular whitespace-nowrap px-4 py-3 text-right text-ink-muted">{formatUsd(h.billed)}</td>
+              <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold text-accent">{formatUsd(h.collected)}</td>
+              <td class="tabular whitespace-nowrap px-4 py-3 text-right text-ink-muted">{h.target > 0 ? Math.round((h.collected / h.target) * 100) : 0}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <form
+      method="post"
+      action={`${base}/eliminar`}
+      onsubmit="return confirm('¿Eliminar este proyecto? Lo ya facturado no se borra: sigue en sus recibos como una cuota extraordinaria normal, solo se deja de llevar su seguimiento.')"
+    >
+      <button type="submit" class="cursor-pointer text-sm font-bold text-danger underline">Eliminar proyecto</button>
+    </form>
+  </div>
+</AdminLayout>

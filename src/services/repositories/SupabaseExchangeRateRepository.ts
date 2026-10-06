@@ -30,4 +30,15 @@ export class SupabaseExchangeRateRepository implements ExchangeRateRepository {
     const { error } = await this.db.from('exchange_rates').upsert(exchangeRateToRow(day, rate), { onConflict: 'day' });
     if (error) throw new Error(`No se pudo guardar la tasa: ${error.message}`);
   }
+
+  async listRecent(limit: number): Promise<{ day: string; rate: ExchangeRate }[]> {
+    const { data, error } = await this.db
+      .from('exchange_rates')
+      .select(COLUMNS)
+      .order('day', { ascending: false })
+      .limit(limit)
+      .overrideTypes<ExchangeRateRow[], { merge: false }>();
+    if (error) throw new Error(`No se pudo leer las tasas recientes: ${error.message}`);
+    return (data ?? []).map((row) => ({ day: row.day, rate: exchangeRateRowToDomain(row) }));
+  }
 }

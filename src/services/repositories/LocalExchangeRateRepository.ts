@@ -23,4 +23,12 @@ export class LocalExchangeRateRepository implements ExchangeRateRepository {
       db.exchange_rates = [...db.exchange_rates.filter((r) => r.day !== day), exchangeRateToRow(day, rate)];
     });
   }
+
+  async listRecent(limit: number): Promise<{ day: string; rate: ExchangeRate }[]> {
+    const { exchange_rates } = await this.store.read();
+    return [...exchange_rates]
+      .sort((a, b) => b.day.localeCompare(a.day))
+      .slice(0, limit)
+      .map((row) => ({ day: row.day, rate: exchangeRateRowToDomain(row) }));
+  }
 }

@@ -33,6 +33,11 @@ export class ExchangeRateService implements CurrentExchangeRate {
     return this.inFlight;
   }
 
+  /** Últimos días con tasa guardada (para elegir la de un día específico al anotar un pago). */
+  listRecent(limit: number): Promise<{ day: string; rate: ExchangeRate }[]> {
+    return this.repository.listRecent(limit);
+  }
+
   /** Consulta la API y guarda la tasa de hoy, aunque ya exista (lo usa el cron diario). */
   async refreshToday(): Promise<ExchangeRate> {
     const today = isoDateInCaracas(this.now());

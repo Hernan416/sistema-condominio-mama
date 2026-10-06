@@ -168,4 +168,10 @@ export const MIGRATIONS: Record<number, (db: Record<string, unknown>) => void> =
       all.forEach((h, i) => Object.assign(h, { aliquot: aliquots[i], aliquot_category_id: null }));
     }
   },
+  // v13 → v14: proyectos con presupuesto (ej. "Pintura de fachada: $250"), repartidos por
+  // alícuota en uno o varios meses, con seguimiento de cuánto se ha recaudado por casa.
+  13: (raw) => {
+    const db = raw as unknown as LocalDatabase;
+    db.budget_projects = [];
+  },
 };

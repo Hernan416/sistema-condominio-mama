@@ -4,7 +4,8 @@ import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
 import SummaryStrip from '@/components/ui/SummaryStrip.astro';
 import FormSelect from '@/components/ui/FormSelect.astro';
 import Button from '@/components/ui/Button.astro';
-import { getAccountService, getAppName } from '@/services/container';
+import Disclosure from '@/components/ui/Disclosure.astro';
+import { getAccountService, getAppName, getMetricsService } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { chargeHistory, paymentHistory, yearsWithActivity, type ChargeFilter } from '@/services/accounts/collectionHistory';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
@@ -12,6 +13,7 @@ import { PAYMENT_METHOD_LABELS } from '@/types/accounts';
 import { formatUsd, formatVes } from '@/utils/currency';
 import { formatDateVe } from '@/utils/dates';
 import { adminInvoicePdfPath } from '@/utils/invoiceNaming';
+import { allMonths, currentPeriod } from '@/utils/months';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
@@ -19,15 +21,29 @@ const { admin, condominium, condominiums, rate } = page;
 
 const accounts = [...(await getAccountService().accountsFor(condominium.id)).values()];
 const q = Astro.url.searchParams;
-const view = q.get('vista') === 'pagos' ? 'pagos' : 'recibos';
+const view = (['pagos', 'caja'].includes(q.get('vista') ?? '') ? q.get('vista') : 'recibos') as 'recibos' | 'pagos' | 'caja';
 const status = (['all', 'pending', 'partial', 'paid'].includes(q.get('estado') ?? '') ? q.get('estado') : 'all') as ChargeFilter;
-const years = yearsWithActivity(accounts);
-const year = years.includes(q.get('anio') ?? '') ? q.get('anio') : null;
+
+const today = currentPeriod();
+// Años con movimientos + el actual (aunque todavía no tenga ninguno), para que siempre se pueda elegir.
+const years = [...new Set([String(today.year), ...yearsWithActivity(accounts)])].sort().reverse();
+
+const rawMonth = Number(q.get('mes'));
+const month = Number.isInteger(rawMonth) && rawMonth >= 1 && rawMonth <= 12 ? rawMonth : null;
+// "Ingresos y egresos" siempre necesita un mes concreto; en las otras vistas, el mes (si se
+// eligió) también obliga a fijar un año, para no filtrar "septiembre de cualquier año".
+let year = years.includes(q.get('anio') ?? '') ? q.get('anio') : null;
+if (!year && (month || view === 'caja')) year = String(today.year);
 const houseId = accounts.some((a) => a.house.id === q.get('casa')) ? q.get('casa') : null;
 
-const charges = chargeHistory(accounts, { status, year, houseId });
-const payments = paymentHistory(accounts, { year, houseId });
+const charges = chargeHistory(accounts, { status, year, month, houseId });
+const payments = paymentHistory(accounts, { year, month, houseId });
 const vesCount = payments.rows.filter((r) => r.payment.amountVes !== null).length;
+
+const cashFlowMonth = month ?? today.month;
+const cashFlowYear = Number(year ?? today.year);
+const cashFlow = view === 'caja' ? await getMetricsService().monthlyCashFlow(condominium, { month: cashFlowMonth, year: cashFlowYear }) : null;
+
 const date = (d: string) => formatDateVe(new Date(`${d}T12:00:00-04:00`));
 const th = 'px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted';
 const statusView = {
@@ -37,20 +53,22 @@ const statusView = {
 };
 const link = (params: Record<string, string | null>) => {
   const u = new URLSearchParams();
-  const merged = { vista: view, estado: status, anio: year, casa: houseId, ...params };
+  const merged = { vista: view, estado: status, anio: year, mes: month ? String(month) : null, casa: houseId, ...params };
   for (const [k, v] of Object.entries(merged)) if (v && v !== 'all') u.set(k, v);
   return `?${u}`;
 };
+const monthOptions = allMonths();
+const cashFlowPdfHref = `/api/admin/${condominium.slug}/ingresos-egresos?month=${cashFlowMonth}&year=${cashFlowYear}`;
 ---
 
-<AdminLayout title={`Cobranza · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="cobranza">
+<AdminLayout title={`Historial · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="cobranza">
   <CondominiumHeader
     name={condominium.name}
     slug={condominium.slug}
     city={condominium.city}
     active="cobranza"
     rate={toExchangeRateView(rate)}
-    description="Aquí se consulta, no se cambia nada: qué recibos están pagados o pendientes y todos los pagos que ha recibido."
+    description="Aquí se consulta, no se cambia nada: qué recibos están pagados o pendientes, los pagos recibidos y los ingresos y egresos de cada mes."
   />
 
   <div class="flex flex-col gap-6">
@@ -60,6 +78,7 @@ const link = (params: Record<string, string | null>) => {
           [
             { id: 'recibos', label: 'Recibos y deudas' },
             { id: 'pagos', label: 'Pagos recibidos' },
+            { id: 'caja', label: 'Ingresos y egresos' },
           ].map((v) => (
             <a
               href={link({ vista: v.id })}
@@ -88,8 +107,23 @@ const link = (params: Record<string, string | null>) => {
             ]}
           />
         )}
-        <FormSelect id="f-anio" name="anio" label="Año" value={year ?? ''} options={[{ value: '', label: 'Todos' }, ...years.map((y) => ({ value: y, label: y }))]} />
-        <FormSelect id="f-casa" name="casa" label="Casa" value={houseId ?? ''} options={[{ value: '', label: 'Todas' }, ...accounts.map((a) => ({ value: a.house.id, label: `Casa ${a.house.number}` }))]} />
+        <FormSelect
+          id="f-mes"
+          name="mes"
+          label="Mes"
+          value={month ? String(month) : ''}
+          options={view === 'caja' ? monthOptions.map((m) => ({ value: String(m.value), label: m.label })) : [{ value: '', label: 'Todos los meses' }, ...monthOptions.map((m) => ({ value: String(m.value), label: m.label }))]}
+        />
+        <FormSelect
+          id="f-anio"
+          name="anio"
+          label="Año"
+          value={year ?? ''}
+          options={view === 'caja' ? years.map((y) => ({ value: y, label: y })) : [{ value: '', label: 'Todos' }, ...years.map((y) => ({ value: y, label: y }))]}
+        />
+        {view !== 'caja' && (
+          <FormSelect id="f-casa" name="casa" label="Casa" value={houseId ?? ''} options={[{ value: '', label: 'Todas' }, ...accounts.map((a) => ({ value: a.house.id, label: `Casa ${a.house.number}` }))]} />
+        )}
         <Button type="submit" size="md" variant="secondary">Filtrar</Button>
       </form>
     </div>
@@ -142,7 +176,7 @@ const link = (params: Record<string, string | null>) => {
             </table>
           </div>
         </>
-      ) : (
+      ) : view === 'pagos' ? (
         <>
           <SummaryStrip
             items={[
@@ -183,6 +217,107 @@ const link = (params: Record<string, string | null>) => {
             </table>
           </div>
         </>
+      ) : cashFlow && (
+        <>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-lg text-ink-muted">
+              Movimientos de <strong class="text-ink">{cashFlow.label}</strong>: solo lo que pasó ese mes, no lo acumulado hasta hoy.
+            </p>
+            <a href={cashFlowPdfHref} target="_blank" rel="noopener" class="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border-2 border-line bg-surface px-5 text-base font-bold text-ink no-underline hover:border-line-strong">
+              Ver vista previa (PDF)
+            </a>
+          </div>
+
+          <SummaryStrip
+            items={[
+              { label: 'Saldo inicial', value: formatUsd(cashFlow.openingBalance) },
+              { label: 'Ingresos', value: `+ ${formatUsd(cashFlow.incomeTotal)}`, tone: 'accent' },
+              { label: 'Egresos', value: `- ${formatUsd(cashFlow.expenseTotal)}`, tone: cashFlow.expenseTotal > 0 ? 'warning' : 'default' },
+              { label: 'Saldo disponible', value: formatUsd(cashFlow.closingBalance), tone: cashFlow.closingBalance < 0 ? 'warning' : 'accent' },
+            ]}
+          />
+
+          <div class="grid gap-6 lg:grid-cols-2">
+            <div class="flex flex-col gap-3">
+              <h2 class="font-display text-2xl font-semibold text-accent-strong">Ingresos</h2>
+              <div class="relative overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+                <table class="w-full min-w-[480px] text-base">
+                  <thead class="bg-canvas/60">
+                    <tr class="border-b border-line">
+                      <th scope="col" class={th}>Fecha</th>
+                      <th scope="col" class={th}>Concepto</th>
+                      <th scope="col" class={`${th} text-right`}>Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cashFlow.payments.length === 0 && cashFlow.incomeLines.length === 0 && (
+                      <tr><td colspan="3" class="p-8 text-center text-ink-muted">No hay ingresos este mes.</td></tr>
+                    )}
+                    {cashFlow.payments.map((p) => (
+                      <tr class="border-b border-line last:border-b-0 hover:bg-canvas/50">
+                        <td class="tabular whitespace-nowrap px-4 py-3 text-sm text-ink-muted">{date(p.date)}</td>
+                        <td class="px-4 py-3">
+                          <span class="font-bold">Casa {p.houseNumber}</span>
+                          <span class="block text-xs text-ink-muted">{p.ownerName ?? ''} · Pago ({PAYMENT_METHOD_LABELS[p.method]})</span>
+                        </td>
+                        <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold text-accent">{formatUsd(p.amount)}</td>
+                      </tr>
+                    ))}
+                    {cashFlow.incomeLines.map((l) => (
+                      <tr class="border-b border-line last:border-b-0 hover:bg-canvas/50">
+                        <td class="px-4 py-3 text-sm text-ink-muted">—</td>
+                        <td class="px-4 py-3">
+                          <span class="font-bold">{l.concept}</span>
+                          <span class="block text-xs text-ink-muted">{l.category ?? 'Ingreso de la comunidad'}</span>
+                        </td>
+                        <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold text-accent">{formatUsd(l.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              <h2 class="font-display text-2xl font-semibold text-warning">Egresos</h2>
+              <div class="relative overflow-x-auto rounded-[var(--radius-card)] bg-surface shadow-[var(--shadow-raised)] ring-1 ring-line">
+                <table class="w-full min-w-[480px] text-base">
+                  <thead class="bg-canvas/60">
+                    <tr class="border-b border-line">
+                      <th scope="col" class={th}>Concepto</th>
+                      <th scope="col" class={th}>Categoría</th>
+                      <th scope="col" class={`${th} text-right`}>Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cashFlow.expenseLines.length === 0 && (
+                      <tr><td colspan="3" class="p-8 text-center text-ink-muted">No hay gastos registrados este mes.</td></tr>
+                    )}
+                    {cashFlow.expenseLines.map((l) => (
+                      <tr class="border-b border-line last:border-b-0 hover:bg-canvas/50">
+                        <td class="px-4 py-3 font-bold">{l.concept}</td>
+                        <td class="px-4 py-3 text-sm text-ink-muted">{l.category ?? '—'}</td>
+                        <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold">{formatUsd(l.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )
+    }
+
+    {
+      view !== 'caja' && (
+        <Disclosure id="exportar" icon="download" title="Exportar estado de cuenta de todas las casas" subtitle="Lo facturado y cobrado del mes elegido (no acumulado) junto al saldo pendiente real de cada casa.">
+          <form method="get" action={`/api/admin/${condominium.slug}/estado-de-cuenta`} target="_blank" class="flex flex-wrap items-end gap-3">
+            <FormSelect id="exp-mes" name="month" label="Mes" value={String(cashFlowMonth)} options={monthOptions.map((m) => ({ value: String(m.value), label: m.label }))} />
+            <FormSelect id="exp-anio" name="year" label="Año" value={String(cashFlowYear)} options={years.map((y) => ({ value: y, label: y }))} />
+            <Button type="submit" size="md" variant="secondary" class="!w-auto px-6">Ver vista previa (PDF)</Button>
+          </form>
+        </Disclosure>
       )
     }
   </div>

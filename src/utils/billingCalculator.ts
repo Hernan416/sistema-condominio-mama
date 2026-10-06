@@ -146,7 +146,7 @@ export function calculateCondominiumInvoices(
       if (share === null) return;
       const id = units[i].id;
       add(extraordinary, id, share);
-      lines.get(id)!.push({ concept: e.concept, kind: 'extraordinary', buildingAmount: e.amount, unitAmount: share });
+      lines.get(id)!.push({ concept: e.concept, kind: 'extraordinary', buildingAmount: e.amount, unitAmount: share, projectId: e.projectId ?? null });
     });
   }
 

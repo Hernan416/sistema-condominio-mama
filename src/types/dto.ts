@@ -33,7 +33,7 @@ export interface InvoiceRowDto {
   payment: { paid: number; outstanding: number; status: 'paid' | 'partial' | 'unpaid' } | null;
 }
 
-export type SheetOriginDto = 'saved' | 'copied' | 'new';
+export type SheetOriginDto = 'saved' | 'new';
 
 export interface BillingSheetDto {
   reserveFundPercent: number;
