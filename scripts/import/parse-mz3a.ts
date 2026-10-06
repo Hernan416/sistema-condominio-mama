@@ -26,7 +26,7 @@ const ALIQUOTS_B: number[] = [
 const housesFrom = (aliquots: number[], sourceLabel: string): PlantillaHouse[] =>
   aliquots.map((aliquot, i) => ({ number: String(i + 1), aliquot, source: sourceLabel }));
 
-// ─── Meses a cargar (enero-agosto 2026) ────────────────────────────────────────────────────────
+// ─── Meses a cargar (enero-septiembre 2026) ────────────────────────────────────────────────────
 const MONTHS: { month: number; year: number; folder: string }[] = [
   { month: 1, year: 2026, folder: 'ENERO 2026' },
   { month: 2, year: 2026, folder: 'FEBRERO 2026' },
@@ -36,6 +36,7 @@ const MONTHS: { month: number; year: number; folder: string }[] = [
   { month: 6, year: 2026, folder: 'JUNIO 2026' },
   { month: 7, year: 2026, folder: 'JULIO 2026' },
   { month: 8, year: 2026, folder: 'AGOSTO 2026' },
+  { month: 9, year: 2026, folder: 'SEPTIEMBRE 2026' },
 ];
 
 // ─── Utilidades de texto/número (formato venezolano: punto = miles, coma = decimal; a veces el
@@ -146,7 +147,9 @@ function parseReceipt(text: string, ctx: { month: number; year: number; source: 
   const itemLines: PlantillaReceipt['lines'] = [];
   for (const raw of rawLines) {
     const trimmed = raw.trim();
-    if (!trimmed || trimmed === '-' || trimmed === '$') continue;
+    // Una nota aclaratoria entre paréntesis (p. ej. "(Costo total $371,04 - Provisión Julio
+    // $250,00)") no es un concepto nuevo: es la explicación del concepto de la línea anterior.
+    if (!trimmed || trimmed === '-' || trimmed === '$' || trimmed.startsWith('(')) continue;
     const tokens = moneyTokens(trimmed);
     let concept = trimmed;
     for (const m of [...trimmed.matchAll(MONEY_RE)]) concept = concept.replace(m[0], '');
@@ -393,7 +396,7 @@ function parseAllLedgerPayments(
       let house: string | null = null;
       for (let i = tokens.length - 1; i >= 0; i--) {
         if (/^\d{1,2}$/.test(tokens[i]) && Number(tokens[i]) >= 1 && Number(tokens[i]) <= 38) {
-          house = tokens[i];
+          house = String(Number(tokens[i])); // "01" (septiembre: "casa 01") -> "1"
           break;
         }
         if (/^\d{3,}$/.test(tokens[i])) break; // llegamos a un código bancario: no hay casa en esta fila
@@ -401,6 +404,14 @@ function parseAllLedgerPayments(
       if (!house) {
         const acct = before.match(/\b(V\d{6,})\b/)?.[1];
         if (acct && ACCOUNT_TO_HOUSE[acct]) house = ACCOUNT_TO_HOUSE[acct];
+      }
+      if (!house) {
+        // A septiembre el Nº de casa a veces sale con ",00" pegado (p. ej. "32,00"), lo que lo
+        // convierte en un monto más para la regex y se "come" el primer monto real de la fila
+        // (ya no queda como palabra suelta en "before"): se revisa aparte.
+        const m = moneyMatches[0][0].match(/^(\d{1,2}),00$/);
+        const n = m ? Number(m[1]) : null;
+        if (n !== null && n >= 1 && n <= 38) house = String(n);
       }
       const method = /pago m[oó]vil/i.test(entry) ? 'mobile' : /trf|transf/i.test(entry) ? 'transfer' : 'other';
       if (house) {
@@ -456,7 +467,7 @@ function main() {
         problems.push(`${source}: el nombre de archivo no trae un número de casa`);
         continue;
       }
-      const houseFromFile = fileMatch[1];
+      const houseFromFile = String(Number(fileMatch[1])); // "CASA 01.pdf" (septiembre) -> "1", no "01"
       try {
         const text = pdftotext(join(dir, f));
         const r = parseReceipt(text, { month, year, source, houseFromFile });
@@ -533,7 +544,7 @@ function main() {
   const plantilla: Plantilla = {
     version: 1,
     batch: 'historico-mz3a-2026',
-    cutoff: '2026-09-01',
+    cutoff: '2026-10-01',
     condominiums: [
       {
         slug: 'manzana-3-a',
@@ -560,7 +571,7 @@ function main() {
 
   mkdirSync(resolve('.local-data/import'), { recursive: true });
   writeFileSync(OUT, JSON.stringify(plantilla, null, 1));
-  console.log(`Recibos parseados: ${receipts.length}/264 · Relaciones de gastos: ${balances.length}/8`);
+  console.log(`Recibos parseados: ${receipts.length}/${MONTHS.length * 33} · Relaciones de gastos: ${balances.length}/${MONTHS.length}`);
   console.log(`Saldo inicial (caja, ${openingCash.date}): $${openingCash.amount}`);
   if (problems.length) {
     console.error(`\nProblemas (${problems.length}):\n - ${problems.join('\n - ')}`);

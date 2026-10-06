@@ -12,7 +12,9 @@
     "data:reset-history": "tsx scripts/data/reset-history.ts",
     "import:extract": "tsx scripts/import/extract.ts",
     "import": "tsx scripts/import/run.ts",
-    "import:test": "tsx --test scripts/import/build.test.ts"
+    "import:test": "tsx --test scripts/import/build.test.ts",
+    "supabase:push": "tsx scripts/supabase/push.ts",
+    "supabase:pull": "tsx scripts/supabase/pull.ts"
   },
   "dependencies": {
     "@astrojs/react": "^7.0.0",

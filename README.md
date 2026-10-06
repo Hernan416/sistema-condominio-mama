@@ -101,6 +101,10 @@ Ningún archivo de código cambia: `src/services/container.ts` elige la implemen
 
 1. **Supabase** → SQL Editor: ejecuta `supabase/migrations/0001_init.sql` y (solo en desarrollo) `supabase/seed.sql`. El script se puede volver a ejecutar sobre una base ya creada: agrega las tablas `payments` y `house_debts` y las columnas nuevas sin borrar datos. Si la base se creó con la versión que usaba Google Drive, ejecuta también, en orden, `0002_remove_file_storage.sql` (quita `drive_file_id` y `drive_file_url`) y `0003_freeze_receipt_header.sql` (congela el encabezado de los recibos).
 2. **Usuarios**: viven en la tabla `users` (`seed.sql` crea a `maria` y un residente por casa). Al mudar la base local, los usuarios y sus PIN se copian tal cual.
+3. **Copiar los datos**: con `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` ya en `.env.local`,
+   - `npm run supabase:push` sube `.local-data/db.json` completo a Supabase, tabla por tabla (se puede repetir: cada fila se sube por su `id`, nunca duplica). Use `-- --dry-run` para solo ver cuántas filas subiría.
+   - `npm run supabase:pull` hace lo inverso: trae TODO lo que hay en Supabase a `.local-data/supabase-export.json`, sin tocar el `db.json` activo. Con `-- --install` además lo deja como `db.json` (con respaldo automático del anterior), para tener en el equipo una foto rápida de lo que hay en la nube.
+   - Volver a `DATA_PROVIDER=local` no borra nada: el `.local-data/db.json` sigue intacto todo el tiempo, se use o no Supabase.
 
 ## Arquitectura
 
