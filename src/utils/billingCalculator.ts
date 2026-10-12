@@ -124,29 +124,30 @@ export function calculateCondominiumInvoices(
     });
   }
 
-  // 2. Fondo de reserva: % del total de gastos comunes ordinarios, repartido en proporción
-  //    a lo que cada unidad aporta a esos gastos.
-  const commonTotal = roundCents([...common.values()].reduce((s, v) => s + v, 0));
-  const reserveTotal = roundCents((commonTotal * sheet.reserveFundPercent) / 100);
-  const reserves = split(reserveTotal, units.map((u) => common.get(u.id) ?? 0));
-
-  // 3. Ingresos de la comunidad: se descuentan con el mismo reparto (fuera de la base del fondo).
-  for (const e of sheet.expenses.filter((x) => x.kind === 'income')) {
-    shareExpense(e).forEach((share, i) => {
-      if (share === null) return;
-      const id = units[i].id;
-      add(income, id, -share);
-      lines.get(id)!.push({ concept: e.concept, kind: 'income', buildingAmount: -Math.abs(e.amount), unitAmount: -share });
-    });
-  }
-
-  // 4. Cuotas extraordinarias (fuera de la base del fondo de reserva).
+  // 2. Cuotas extraordinarias (sí entran en la base del fondo de reserva, junto con los ordinarios).
   for (const e of sheet.expenses.filter((x) => x.kind === 'extraordinary')) {
     shareExpense(e).forEach((share, i) => {
       if (share === null) return;
       const id = units[i].id;
       add(extraordinary, id, share);
       lines.get(id)!.push({ concept: e.concept, kind: 'extraordinary', buildingAmount: e.amount, unitAmount: share, projectId: e.projectId ?? null });
+    });
+  }
+
+  // 3. Fondo de reserva: % del total de gastos (ordinarios + extraordinarios), repartido en
+  //    proporción a lo que cada unidad aporta a esos gastos.
+  const unitExpense = (u: UnitInput) => (common.get(u.id) ?? 0) + (extraordinary.get(u.id) ?? 0);
+  const expensesTotal = roundCents(units.reduce((s, u) => s + unitExpense(u), 0));
+  const reserveTotal = roundCents((expensesTotal * sheet.reserveFundPercent) / 100);
+  const reserves = split(reserveTotal, units.map(unitExpense));
+
+  // 4. Ingresos de la comunidad: se descuentan con el mismo reparto (fuera de la base del fondo).
+  for (const e of sheet.expenses.filter((x) => x.kind === 'income')) {
+    shareExpense(e).forEach((share, i) => {
+      if (share === null) return;
+      const id = units[i].id;
+      add(income, id, -share);
+      lines.get(id)!.push({ concept: e.concept, kind: 'income', buildingAmount: -Math.abs(e.amount), unitAmount: -share });
     });
   }
 
