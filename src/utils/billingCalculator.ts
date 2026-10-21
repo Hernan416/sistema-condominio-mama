@@ -13,16 +13,9 @@ export interface UnitInput {
 }
 
 export interface PreviousDebt {
-  /** Total adeudado de recibos anteriores (incluye intereses ya facturados). */
+  /** Total adeudado de recibos anteriores. */
   amount: number;
   count: number;
-  /** Parte de la deuda sobre la que corre interés: excluye intereses ya facturados (sin anatocismo). */
-  interestBase: number;
-}
-
-export interface CalculationOptions {
-  /** % mensual de interés de mora sobre la deuda anterior; 0 = no se cobra. */
-  lateInterestMonthlyPercent?: number;
 }
 
 /** Redondeo al céntimo (evita 0.1 + 0.2 = 0.30000000000000004). */
@@ -77,7 +70,6 @@ export function calculateCondominiumInvoices(
   sheet: BillingSheet,
   units: UnitInput[],
   debts: Map<string, PreviousDebt> = new Map(),
-  { lateInterestMonthlyPercent = 0 }: CalculationOptions = {},
 ): Map<string, InvoiceBreakdown> {
   const lines = new Map<string, InvoiceLine[]>(units.map((u) => [u.id, []]));
   const common = new Map<string, number>(units.map((u) => [u.id, 0]));
@@ -174,23 +166,12 @@ export function calculateCondominiumInvoices(
       unitLines.push({ concept: c.concept, kind: 'unit', buildingAmount: null, unitAmount: amount });
     }
 
-    // 6. Interés de mora: simple, sobre la deuda anterior sin intereses previos.
-    const debt = debts.get(unit.id) ?? { amount: 0, count: 0, interestBase: 0 };
-    const lateInterest = roundCents((Math.max(0, debt.interestBase) * lateInterestMonthlyPercent) / 100);
-    if (lateInterest > 0) {
-      unitLines.push({
-        concept: `Interés de mora (${formatPercent(lateInterestMonthlyPercent)} mensual sobre deuda anterior)`,
-        kind: 'interest',
-        buildingAmount: null,
-        unitAmount: lateInterest,
-      });
-    }
-
     const commonSubtotal = common.get(unit.id) ?? 0;
     const incomeSubtotal = income.get(unit.id) ?? 0;
     const extraordinarySubtotal = extraordinary.get(unit.id) ?? 0;
+    const debt = debts.get(unit.id) ?? { amount: 0, count: 0 };
     // Nunca negativo: si los abonos superan lo facturado, el recibo queda en cero.
-    const monthTotal = Math.max(0, roundCents(commonSubtotal + reserveFund + incomeSubtotal + extraordinarySubtotal + unitChargesSubtotal + lateInterest));
+    const monthTotal = Math.max(0, roundCents(commonSubtotal + reserveFund + incomeSubtotal + extraordinarySubtotal + unitChargesSubtotal));
     const previousDebt = roundCents(debt.amount);
 
     result.set(unit.id, {
@@ -202,8 +183,6 @@ export function calculateCondominiumInvoices(
       incomeSubtotal,
       extraordinarySubtotal,
       unitChargesSubtotal,
-      lateInterest,
-      lateInterestMonthlyPercent,
       monthTotal,
       previousDebt,
       previousDebtCount: debt.count,

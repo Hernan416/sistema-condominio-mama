@@ -95,8 +95,6 @@ function breakdownOf(r: PlantillaReceipt, aliquot: number, fallbackDue: string |
     incomeSubtotal: sum('income'),
     extraordinarySubtotal: sum('extraordinary'),
     unitChargesSubtotal: sum('unit'),
-    lateInterest: sum('interest'),
-    lateInterestMonthlyPercent: r.lateInterestMonthlyPercent ?? 0,
     monthTotal: cents(r.monthTotal),
     previousDebt: cents(r.previousDebt),
     previousDebtCount: r.previousDebtCount ?? 0,
@@ -143,7 +141,6 @@ export function buildImport(p: Plantilla, db: LocalDatabase): ImportPlan {
     if ('paymentInstructions' in s) condoFields.payment_instructions = s.paymentInstructions ?? null;
     if (s.dueDay !== undefined) condoFields.due_day = s.dueDay;
     if (s.defaultReserveFundPercent !== undefined) condoFields.default_reserve_fund_percent = s.defaultReserveFundPercent;
-    if (s.lateInterestMonthlyPercent !== undefined) condoFields.late_interest_monthly_percent = s.lateInterestMonthlyPercent;
     if (pc.openingCash) Object.assign(condoFields, { opening_balance: cents(pc.openingCash.amount), opening_balance_date: pc.openingCash.date });
     if (Object.keys(condoFields).length) plan.condominiumUpdates.push({ id: condo.id, fields: condoFields });
     const header = { ...condo, ...condoFields };
@@ -270,7 +267,7 @@ export function buildImport(p: Plantilla, db: LocalDatabase): ImportPlan {
           source: r.source,
           ...tag,
         });
-        charges.push({ id, source: 'invoice', date: firstDay(r.year, r.month), amount: cents(r.monthTotal), interest: breakdownOf(r, aliquot, null).lateInterest, months: null, isInvoice: true });
+        charges.push({ id, source: 'invoice', date: firstDay(r.year, r.month), amount: cents(r.monthTotal), months: null, isInvoice: true });
       }
 
       // Deuda de años anteriores: la "deuda anterior" del primer recibo.
@@ -290,7 +287,7 @@ export function buildImport(p: Plantilla, db: LocalDatabase): ImportPlan {
           source: first.source,
           ...tag,
         };
-        charges.unshift({ id: openingDebt.id, source: 'debt', date: openingDebt.origin_date, amount: Number(openingDebt.amount), interest: 0, months: openingDebt.months ?? null, isInvoice: false });
+        charges.unshift({ id: openingDebt.id, source: 'debt', date: openingDebt.origin_date, amount: Number(openingDebt.amount), months: openingDebt.months ?? null, isInvoice: false });
       }
       // Casa sin recibos pero con deuda en el archivo: se registra como deuda al corte.
       if (!first && expected && expected.amount > TOLERANCE) {
@@ -306,7 +303,7 @@ export function buildImport(p: Plantilla, db: LocalDatabase): ImportPlan {
           source: expected.source,
           ...tag,
         };
-        charges.push({ id: openingDebt.id, source: 'debt', date: p.cutoff, amount: cents(expected.amount), interest: 0, months: expected.months || null, isInvoice: false });
+        charges.push({ id: openingDebt.id, source: 'debt', date: p.cutoff, amount: cents(expected.amount), months: expected.months || null, isInvoice: false });
         notes.push('sin recibos: se cargó la deuda del archivo');
       }
 

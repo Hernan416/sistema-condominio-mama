@@ -103,7 +103,7 @@ export function InvoiceTable({ rows, rowStates, usdToVes: rate, disabled, canIss
                   <td className="px-4 py-3">
                     <div className="flex flex-col items-end gap-1">
                       {row.invoice?.imported && <span className="text-sm font-bold text-ink-muted">Histórico</span>}
-                      {!paid && !row.invoice?.imported && (
+                      {!row.invoice?.imported && (
                         <ActionButton
                           size="sm"
                           variant={issued && !row.outdated ? 'secondary' : 'primary'}

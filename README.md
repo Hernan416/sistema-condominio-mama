@@ -82,7 +82,7 @@ Reglas: los recibos importados se guardan tal cual (desglose y encabezado congel
 - **Relación de gastos del mes** (en USD): gastos comunes, cuotas extraordinarias e ingresos, repartidos por alícuota o en partes iguales. Se propone copiando el mes anterior y hay que guardarla antes de emitir.
 - **Personalización por casa**: cambiar cómo paga un concepto (monto fijo o "no aplica"; el resto lo absorben las demás), cargos y abonos propios (opcionalmente "cada mes") y nota en el recibo. Todo se puede hacer 1 a 1 o para varias casas a la vez.
 - **Fondo de reserva**: % sobre los gastos comunes (la ley no lo fija; 10 % por defecto).
-- **Deuda anterior** con **interés de mora** opcional (simple, nunca sobre intereses) y estado **solvente / con deuda**.
+- **Deuda anterior** y estado **solvente / con deuda**.
 - **Reparto exacto**: cada gasto cuadra al céntimo con lo facturado, y casas con la misma alícuota pagan lo mismo (±1 céntimo).
 - El PDF lleva RIF, datos del propietario y alícuota, relación de gastos, total en USD y Bs. (tasa BCV), forma de pago y la leyenda del art. 14 LPH. Cada recibo guarda su desglose: no cambia aunque luego se editen los datos.
 

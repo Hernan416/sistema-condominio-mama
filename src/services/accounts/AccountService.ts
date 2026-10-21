@@ -293,12 +293,11 @@ export function buildAccount(house: House, invoices: Invoice[], debts: HouseDebt
       source: 'invoice',
       date: `${inv.year}-${String(inv.month).padStart(2, '0')}-01`,
       amount: inv.amount,
-      interest: inv.detail?.lateInterest ?? 0,
     });
     meta.set(inv.id, { label: `Recibo de ${formatPeriod(inv.month, inv.year).toLowerCase()}`, invoice: inv, debt: null });
   }
   for (const d of debts) {
-    charges.push({ id: d.id, source: 'debt', date: d.date, amount: d.amount, interest: 0 });
+    charges.push({ id: d.id, source: 'debt', date: d.date, amount: d.amount });
     meta.set(d.id, { label: d.concept, invoice: null, debt: d });
   }
 

@@ -59,7 +59,6 @@ export class CondominiumService {
     const s = update.settings;
     if (!(s.defaultReserveFundPercent >= 0 && s.defaultReserveFundPercent <= 100)) throw new ValidationError('El fondo de reserva debe estar entre 0 % y 100 %');
     if (!(Number.isInteger(s.dueDay) && s.dueDay >= 1 && s.dueDay <= 28)) throw new ValidationError('El día de vencimiento debe estar entre 1 y 28');
-    if (!(s.lateInterestMonthlyPercent >= 0 && s.lateInterestMonthlyPercent <= 10)) throw new ValidationError('El interés de mora debe estar entre 0 % y 10 % mensual');
     if (!Number.isFinite(s.openingBalance) || Math.abs(s.openingBalance) > 1e9) throw new ValidationError('El saldo inicial no es válido');
     if (s.openingBalanceDate && !/^\d{4}-\d{2}-\d{2}$/.test(s.openingBalanceDate)) throw new ValidationError('La fecha del saldo inicial no es válida');
     return this.condominiums.update(condominium.id, { ...update, name: update.name.trim(), city: update.city?.trim() || null });

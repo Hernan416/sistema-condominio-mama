@@ -5,26 +5,17 @@ import { formatPeriod } from '@/utils/months';
 import { formatPercent } from '@/utils/billingCalculator';
 import type { InvoiceDocumentData, InvoicePdfRenderer } from '@/services/contracts';
 import type { InvoiceLine } from '@/types/billing';
-import { ACCENT, HEADER_BAR, INK, LEFT, MUTED, RIGHT, SUNKEN, TINT, WARN, usd, Writer, type RGB } from '@/services/pdf/pdfWriter';
+import { ACCENT, INK, LEFT, MUTED, RIGHT, SUNKEN, TINT, WARN, usd, Writer, type RGB } from '@/services/pdf/pdfWriter';
 
 const COL_BUILDING = 440; // borde derecho de la columna "Monto en $"
 
 const rateFormat = new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 /**
- * Una línea sin monto (concepto en mayúsculas, $0 en las dos columnas) es una cabecera de
- * sección tal como venían en los recibos originales ("GASTO ADMINISTRATIVO", "SERVICIO
- * PUBLICO"…): se dibuja como una barra en vez de una línea de cobro más.
- */
-function isSectionHeader(line: InvoiceLine): boolean {
-  return line.unitAmount === 0 && (line.buildingAmount === null || line.buildingAmount === 0) && line.concept === line.concept.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(line.concept);
-}
-
-/**
  * FACADE sobre pdf-lib: el resto del sistema solo conoce `render(data)`.
  * Sigue el formato de los recibos reales de la Junta de Condominio: encabezado con RIF,
  * franja "INMOBILIARIO/PROPIETARIO/ALÍCUOTAS", tabla de conceptos (Monto en $ / Alícuotas
- * $) con sus cabeceras de sección, Sub-total, Fondo de Reserva, Total de Gastos Comunes,
+ * $), Sub-total, Fondo de Reserva, Total de Gastos Comunes,
  * Estado de Cuenta (deuda anterior, cuota del mes, total a pagar) y forma de pago.
  */
 export class PdfInvoiceFacade implements InvoicePdfRenderer {
@@ -89,8 +80,7 @@ export class PdfInvoiceFacade implements InvoicePdfRenderer {
     const reserveLines = detail.lines.filter((l) => l.kind === 'reserve');
     for (const line of detail.lines) {
       if (line.kind === 'reserve') continue;
-      if (isSectionHeader(line)) this.drawSectionHeader(w, line.concept);
-      else this.drawLine(w, line);
+      this.drawLine(w, line);
       buildingSubtotal += line.buildingAmount ?? 0;
       unitSubtotal += line.unitAmount;
     }
@@ -156,23 +146,10 @@ export class PdfInvoiceFacade implements InvoicePdfRenderer {
 
     // ── Pie legal ──────────────────────────────────────────────
     w.y -= 10;
-    const legal = [
-      'Conforme al artículo 14 de la Ley de Propiedad Horizontal, esta liquidación tiene fuerza ejecutiva.',
-      detail.lateInterestMonthlyPercent > 0
-        ? `Los recibos vencidos generan un interés de mora de ${formatPercent(detail.lateInterestMonthlyPercent)} mensual, aprobado en asamblea.`
-        : null,
-    ].filter(Boolean) as string[];
-    for (const line of legal) w.paragraph(line, 8, 'regular', MUTED);
+    w.paragraph('Conforme al artículo 14 de la Ley de Propiedad Horizontal, esta liquidación tiene fuerza ejecutiva.', 8, 'regular', MUTED);
 
     w.footerOnAllPages(`${data.condominiumName} · Recibo N° ${data.receiptNumber}`);
     return doc.save();
-  }
-
-  private drawSectionHeader(w: Writer, concept: string) {
-    w.ensure(20);
-    w.page.drawRectangle({ x: LEFT, y: w.y - 4, width: RIGHT - LEFT, height: 15, color: HEADER_BAR });
-    w.textAt(concept, LEFT + 4, w.y, 9, 'bold', INK);
-    w.y -= 17;
   }
 
   private drawLine(w: Writer, line: InvoiceLine) {

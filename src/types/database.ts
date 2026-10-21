@@ -13,7 +13,6 @@ export interface CondominiumRow {
   payment_instructions?: string | null;
   default_reserve_fund_percent?: number | string;
   due_day?: number;
-  late_interest_monthly_percent?: number | string;
   aliquot_scheme?: unknown; // jsonb { mode, categories: [{ id, name, value }] }
   opening_balance?: number | string;
   opening_balance_date?: string | null;

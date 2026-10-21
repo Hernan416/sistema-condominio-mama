@@ -83,17 +83,30 @@ export function useInvoiceGeneration({ condominiumSlug, initialPeriod, initialRo
     [rows],
   );
 
+  /** Recibos ya emitidos (no históricos) que se pueden volver a generar, aunque estén al día o pagados. */
+  const regenerableHouseIds = useMemo(
+    () => rows.filter((r) => r.invoice && r.invoice.status !== 'pending' && !r.invoice.imported).map((r) => r.houseId),
+    [rows],
+  );
+
+  const runBulk = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      setBulk({ running: true, done: 0, total: ids.length, failed: 0 });
+      for (const id of ids) {
+        const ok = await generateOne(id);
+        setBulk((b) => ({ ...b, done: b.done + 1, failed: b.failed + (ok ? 0 : 1) }));
+      }
+      setBulk((b) => ({ ...b, running: false }));
+    },
+    [generateOne],
+  );
+
   // Secuencial a propósito: respeta los límites de Vercel.
-  const generateAll = useCallback(async () => {
-    const ids = pendingHouseIds;
-    if (ids.length === 0) return;
-    setBulk({ running: true, done: 0, total: ids.length, failed: 0 });
-    for (const id of ids) {
-      const ok = await generateOne(id);
-      setBulk((b) => ({ ...b, done: b.done + 1, failed: b.failed + (ok ? 0 : 1) }));
-    }
-    setBulk((b) => ({ ...b, running: false }));
-  }, [pendingHouseIds, generateOne]);
+  const generateAll = useCallback(() => runBulk(pendingHouseIds), [runBulk, pendingHouseIds]);
+
+  /** Fuerza a volver a generar TODOS los recibos ya emitidos del periodo (al día o no, pagados o no). */
+  const regenerateAll = useCallback(() => runBulk(regenerableHouseIds), [runBulk, regenerableHouseIds]);
 
   const stats = useMemo(() => summarizeRows(rows), [rows]);
 
@@ -107,7 +120,9 @@ export function useInvoiceGeneration({ condominiumSlug, initialPeriod, initialRo
     loadError,
     generateOne,
     generateAll,
+    regenerateAll,
     pendingCount: pendingHouseIds.length,
+    regenerateCount: regenerableHouseIds.length,
     bulk,
     stats,
   };

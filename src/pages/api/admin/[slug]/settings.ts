@@ -28,7 +28,6 @@ export const POST: APIRoute = async ({ locals, params, request, redirect }) => {
         paymentInstructions: text('paymentInstructions'),
         defaultReserveFundPercent: number('defaultReserveFundPercent'),
         dueDay: number('dueDay'),
-        lateInterestMonthlyPercent: number('lateInterestMonthlyPercent') || 0,
         openingBalance: parseDecimalInput(String(form.get('openingBalance') ?? '')) ?? 0,
         openingBalanceDate: text('openingBalanceDate'),
       },

@@ -6,7 +6,7 @@ import type { AliquotScheme } from '@/utils/aliquotScheme';
 import type { CondominiumRepository } from '@/services/contracts';
 
 const COLUMNS = 'id, name, slug, city';
-const FULL_COLUMNS = `${COLUMNS}, rif, address, administrator_name, administrator_rif, payment_instructions, default_reserve_fund_percent, due_day, late_interest_monthly_percent, aliquot_scheme, opening_balance, opening_balance_date`;
+const FULL_COLUMNS = `${COLUMNS}, rif, address, administrator_name, administrator_rif, payment_instructions, default_reserve_fund_percent, due_day, aliquot_scheme, opening_balance, opening_balance_date`;
 
 export class SupabaseCondominiumRepository implements CondominiumRepository {
   constructor(private readonly db: SupabaseClient) {}

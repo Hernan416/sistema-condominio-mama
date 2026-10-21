@@ -42,9 +42,11 @@ export default function InvoiceGenerator({ condominiumSlug, initialPeriod, initi
       <BulkActions
         periodSlot={<PeriodPicker period={inv.period} onChange={inv.changePeriod} disabled={inv.bulk.running} />}
         pendingCount={inv.sheetSaved ? inv.pendingCount : 0}
+        regenerateCount={inv.sheetSaved ? inv.regenerateCount : 0}
         progress={inv.bulk}
         disabled={locked || !inv.sheetSaved}
         onGenerateAll={inv.generateAll}
+        onRegenerateAll={inv.regenerateAll}
       />
 
       {inv.loadError && (

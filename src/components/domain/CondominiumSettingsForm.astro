@@ -50,7 +50,7 @@ const pct = (n: number) => String(n).replace('.', ',');
   <section class="rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">
     <h2 class="font-display mb-1 text-2xl font-semibold">Valores de facturación</h2>
     <p class="mb-5 text-sm text-ink-muted">Se proponen cada mes; puede ajustarlos en la relación de gastos.</p>
-    <div class="grid gap-4 md:grid-cols-3">
+    <div class="grid gap-4 md:grid-cols-2">
       <FormField
         id="defaultReserveFundPercent"
         name="defaultReserveFundPercent"
@@ -60,14 +60,6 @@ const pct = (n: number) => String(n).replace('.', ',');
         hint="La ley no lo fija: lo establece el documento de condominio o la asamblea (lo usual es 10 %)."
       />
       <FormField id="dueDay" name="dueDay" label="Día de vencimiento (mes siguiente)" value={s.dueDay} inputmode="numeric" hint="Entre 1 y 28." />
-      <FormField
-        id="lateInterestMonthlyPercent"
-        name="lateInterestMonthlyPercent"
-        label="Interés de mora mensual (%)"
-        value={pct(s.lateInterestMonthlyPercent)}
-        inputmode="decimal"
-        hint="Solo si lo aprobó la asamblea. 0 = no se cobra. Se calcula sobre la deuda, nunca sobre intereses."
-      />
     </div>
   </section>
 

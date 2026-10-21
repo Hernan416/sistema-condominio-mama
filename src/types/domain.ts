@@ -26,11 +26,6 @@ export interface CondominiumSettings {
   defaultReserveFundPercent: number;
   /** Día del mes siguiente en que vence el recibo (1–28). */
   dueDay: number;
-  /**
-   * Interés de mora mensual (%) aprobado por la asamblea; 0 = no se cobra.
-   * La LPH no lo fija: sin tasa indicada en el recibo rige el interés legal (3 % anual).
-   */
-  lateInterestMonthlyPercent: number;
   /** Saldo en caja/banco al empezar a usar el sistema (base del saldo total en el resumen). */
   openingBalance: number;
   /** Fecha de ese saldo inicial "YYYY-MM-DD". */

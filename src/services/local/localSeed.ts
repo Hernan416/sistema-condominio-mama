@@ -31,7 +31,6 @@ export function demoCondominiumSettings(rif: string): Partial<CondominiumRow> {
     payment_instructions: `Pago móvil: Banco ___ · Tel. 0414-000-0000 · RIF ${rif}\nTransferencia: cuenta corriente ___ a nombre de la Junta de Condominio`,
     default_reserve_fund_percent: 10,
     due_day: 5,
-    late_interest_monthly_percent: 0,
     aliquot_scheme: { mode: 'proportional', categories: [] },
     opening_balance: 0,
     opening_balance_date: null,

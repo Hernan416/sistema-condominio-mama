@@ -62,6 +62,11 @@ export interface BillingSheet {
   updatedAt: Date | null;
 }
 
+/**
+ * 'interest' (interés de mora) ya no se genera: se dejó en el tipo solo porque recibos
+ * emitidos antes de retirar esa función (o importados de archivos históricos) todavía
+ * tienen líneas con ese kind y deben poder seguir mostrándose tal cual se emitieron.
+ */
 export type InvoiceLineKind = 'ordinary' | 'reserve' | 'income' | 'extraordinary' | 'unit' | 'interest';
 
 export interface InvoiceLine {
@@ -86,9 +91,6 @@ export interface InvoiceBreakdown {
   incomeSubtotal: number;
   extraordinarySubtotal: number;
   unitChargesSubtotal: number;
-  /** Interés de mora sobre la deuda anterior (simple: nunca sobre intereses). */
-  lateInterest: number;
-  lateInterestMonthlyPercent: number;
   /** Lo facturado este mes (sin deuda anterior). */
   monthTotal: number;
   previousDebt: number;

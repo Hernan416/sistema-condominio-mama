@@ -101,14 +101,13 @@ export class BillingService {
 
   /** Cálculo de todas las unidades del periodo, junto a la factura ya emitida (si hay). */
   async preview(condominium: Condominium, period: BillingPeriod): Promise<{ sheet: BillingSheet; origin: SheetOrigin; units: UnitPreview[] }> {
-    const [{ sheet, origin }, houses, issued, settings, states] = await Promise.all([
+    const [{ sheet, origin }, houses, issued, states] = await Promise.all([
       this.getSheet(condominium, period),
       this.houses.listByCondominium(condominium.id),
       this.invoices.listByCondominiumAndPeriod(condominium.id, period),
-      this.condominiums.findWithSettings(condominium.id),
       this.accounts.invoiceStates(condominium.id),
     ]);
-    const breakdowns = await this.calculate(condominium, period, sheet, houses, settings?.settings.lateInterestMonthlyPercent ?? 0);
+    const breakdowns = await this.calculate(condominium, period, sheet, houses);
     const byHouse = new Map(issued.map((i) => [i.houseId, i]));
 
     const units = houses.map((house) => {
@@ -137,22 +136,20 @@ export class BillingService {
     const houses = await this.houses.listByCondominium(condominium.id);
     const house = houses.find((h) => h.id === houseId);
     if (!house) throw new NotFoundError('La unidad no existe en este condominio');
-    const [{ sheet, origin }, settings] = await Promise.all([this.getSheet(condominium, period), this.condominiums.findWithSettings(condominium.id)]);
+    const { sheet, origin } = await this.getSheet(condominium, period);
     // Nunca se emite con una propuesta copiada del mes anterior sin que nadie la revise.
     if (origin !== 'saved') throw new ValidationError('Revise y guarde la relación de gastos de este mes antes de emitir recibos');
     if (sheet.expenses.length === 0 && sheet.unitCharges.every((c) => c.houseId !== houseId)) {
       throw new ValidationError('La relación de gastos del mes está vacía');
     }
-    const breakdowns = await this.calculate(condominium, period, sheet, houses, settings?.settings.lateInterestMonthlyPercent ?? 0);
+    const breakdowns = await this.calculate(condominium, period, sheet, houses);
     return { house, breakdown: breakdowns.get(houseId)! };
   }
 
-  private async calculate(condominium: Condominium, period: BillingPeriod, sheet: BillingSheet, houses: House[], lateInterest: number) {
+  private async calculate(condominium: Condominium, period: BillingPeriod, sheet: BillingSheet, houses: House[]) {
     // Deuda anterior según el libro de cuentas: recibos previos y deudas registradas, menos pagos.
     const debts = await this.accounts.previousDebts(condominium.id, period);
-    return calculateCondominiumInvoices(sheet, houses.map((h) => ({ id: h.id, aliquot: h.aliquot })), debts, {
-      lateInterestMonthlyPercent: lateInterest,
-    });
+    return calculateCondominiumInvoices(sheet, houses.map((h) => ({ id: h.id, aliquot: h.aliquot })), debts);
   }
 }
 

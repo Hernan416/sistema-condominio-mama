@@ -10,7 +10,6 @@ export const DEFAULT_SETTINGS: CondominiumSettings = {
   paymentInstructions: null,
   defaultReserveFundPercent: 10,
   dueDay: 5,
-  lateInterestMonthlyPercent: 0,
   openingBalance: 0,
   openingBalanceDate: null,
 };
@@ -30,7 +29,6 @@ export function supabaseCondominiumWithSettings(row: CondominiumRow): Condominiu
       paymentInstructions: row.payment_instructions ?? null,
       defaultReserveFundPercent: row.default_reserve_fund_percent == null ? DEFAULT_SETTINGS.defaultReserveFundPercent : Number(row.default_reserve_fund_percent),
       dueDay: row.due_day ?? DEFAULT_SETTINGS.dueDay,
-      lateInterestMonthlyPercent: Number(row.late_interest_monthly_percent ?? 0),
       openingBalance: Number(row.opening_balance ?? 0),
       openingBalanceDate: row.opening_balance_date ?? null,
     },
@@ -66,7 +64,6 @@ export function condominiumUpdateToRow(update: { name: string; city: string | nu
     payment_instructions: s.paymentInstructions,
     default_reserve_fund_percent: s.defaultReserveFundPercent,
     due_day: s.dueDay,
-    late_interest_monthly_percent: s.lateInterestMonthlyPercent,
     opening_balance: s.openingBalance,
     opening_balance_date: s.openingBalanceDate,
   };

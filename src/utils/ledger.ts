@@ -11,8 +11,6 @@ export interface LedgerCharge {
   /** Fecha del cargo "YYYY-MM-DD" (recibo: día 1 de su mes; deuda: fecha de origen). */
   date: string;
   amount: number;
-  /** Parte de intereses de mora incluida en `amount` (no genera nuevos intereses). */
-  interest: number;
 }
 
 export interface LedgerPayment {
@@ -106,28 +104,24 @@ export function applyPayments(charges: LedgerCharge[], payments: LedgerPayment[]
 }
 
 /**
- * Deuda de una casa hasta cierto punto (para la "deuda anterior" del recibo): suma lo pendiente
- * de los cargos que cumplen `isPrevious`, y la parte de esa deuda que genera intereses
- * (la pendiente sin los intereses ya facturados, en proporción).
+ * Deuda de una casa hasta cierto punto (para la "deuda anterior" del recibo): suma lo
+ * pendiente de los cargos que cumplen `isPrevious`.
  */
 export function previousDebt(
   charges: LedgerCharge[],
   states: Map<string, ChargeState>,
   isPrevious: (c: LedgerCharge) => boolean,
-): { amount: number; count: number; interestBase: number } {
+): { amount: number; count: number } {
   let amount = 0;
   let count = 0;
-  let base = 0;
   for (const c of charges) {
     if (!isPrevious(c)) continue;
     const state = states.get(c.id);
     if (!state || state.outstanding <= 0) continue;
     amount += cents(state.outstanding);
     count += 1;
-    const principalShare = c.amount > 0 ? Math.max(0, c.amount - c.interest) / c.amount : 1;
-    base += cents(state.outstanding) * principalShare;
   }
-  return { amount: usd(amount), count, interestBase: Math.round(base) / 100 };
+  return { amount: usd(amount), count };
 }
 
 /** Días transcurridos desde una fecha "YYYY-MM-DD" hasta `today` (para antigüedad de deuda). */
