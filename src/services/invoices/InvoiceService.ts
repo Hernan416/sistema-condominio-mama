@@ -33,14 +33,27 @@ export class InvoiceService {
     if (existing?.imported) {
       throw new ConflictError('Este recibo es histórico (se cargó de los archivos) y se conserva tal cual: no se puede volver a emitir.');
     }
-    const [{ house, breakdown }, full, exchangeRate] = await Promise.all([
+    const [first, full, exchangeRate] = await Promise.all([
       this.billing.breakdownFor(condominium, period, houseId),
       this.condominiums.findWithSettings(condominium.id),
       this.exchangeRates.current(),
     ]);
     // Foto del recibo en este instante: montos (desglose), tasa y encabezado quedan congelados.
-    const header = headerOf(full?.name ?? condominium.name, house, full?.settings ?? DEFAULT_SETTINGS, receiptNumber(period, house.number), exchangeRate?.source ?? null);
-    return this.invoices.saveGenerated({ houseId, period, detail: breakdown, rate: exchangeRate, header, issuedAt: new Date() });
+    const header = headerOf(full?.name ?? condominium.name, first.house, full?.settings ?? DEFAULT_SETTINGS, receiptNumber(period, first.house.number), exchangeRate?.source ?? null);
+    const issuedAt = new Date();
+    const saved = await this.invoices.saveGenerated({ houseId, period, detail: first.breakdown, rate: exchangeRate, header, issuedAt });
+
+    // La "deuda anterior" sale del libro de cuentas, que incluye el monto de ESTE MISMO recibo
+    // (p. ej. si antes tenía otro monto y se reemite). Guardarlo recién puede cambiar ese monto,
+    // lo que invalida la deuda anterior que se acaba de calcular y guardar con el monto viejo.
+    // Se recalcula una vez más, ya con el monto nuevo en el libro, y si cambió se guarda de
+    // nuevo: así el recibo queda consistente consigo mismo desde el primer "Emitir" (converge en
+    // una segunda vuelta porque el monto del mes no depende de la deuda anterior).
+    const second = await this.billing.breakdownFor(condominium, period, houseId);
+    if (second.breakdown.previousDebt !== first.breakdown.previousDebt || second.breakdown.previousDebtCount !== first.breakdown.previousDebtCount) {
+      return this.invoices.saveGenerated({ houseId, period, detail: second.breakdown, rate: exchangeRate, header, issuedAt });
+    }
+    return saved;
   }
 
   /**
