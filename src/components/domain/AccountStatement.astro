@@ -36,7 +36,7 @@ const statusView = {
             <tr class="border-b border-line">
               <th scope="col" class={th}>Mes o fecha</th>
               <th scope="col" class={th}>Concepto</th>
-              <th scope="col" class={`${th} text-right`}>Monto</th>
+              <th scope="col" class={`${th} text-right`}>Total a pagar</th>
               <th scope="col" class={`${th} text-right`}>Pendiente</th>
               <th scope="col" class={th}>Estado</th>
             </tr>
@@ -67,7 +67,7 @@ const statusView = {
                     )}
                   </div>
                 </td>
-                <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold">{formatUsd(c.amount)}</td>
+                <td class="tabular whitespace-nowrap px-4 py-3 text-right font-bold">{formatUsd(c.invoice?.detail?.totalDue ?? c.amount)}</td>
                 <td class:list={['tabular whitespace-nowrap px-4 py-3 text-right font-bold', c.outstanding > 0 ? 'text-warning' : 'text-ink-muted']}>{formatUsd(c.outstanding)}</td>
                 <td class="px-4 py-3">
                   <span class:list={['inline-flex whitespace-nowrap rounded-full px-3 py-1 text-sm font-bold', statusView[c.status].cls]}>{statusView[c.status].label}</span>
