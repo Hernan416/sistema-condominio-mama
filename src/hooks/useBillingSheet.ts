@@ -122,7 +122,11 @@ export function useBillingSheet({ condominiumSlug, units, initialPeriod, initial
     [sheetForCalc, units],
   );
   const totals = useMemo(() => {
-    const sum = (kind: ExpenseKind) => roundCents(draft.expenses.filter((e) => e.kind === kind).reduce((s, e) => s + e.amount, 0));
+    // Los gastos de categoría "Proyectos" no se cuentan en las tarjetas de Gastos comunes /
+    // Cuotas extraordinarias (ya tienen su propio seguimiento en la pantalla de Proyectos);
+    // esto es solo visual, no cambia lo que se le factura a cada casa.
+    const isProject = (e: BuildingExpense) => (e.category ?? '').trim().toLowerCase() === 'proyectos';
+    const sum = (kind: ExpenseKind) => roundCents(draft.expenses.filter((e) => e.kind === kind && !isProject(e)).reduce((s, e) => s + e.amount, 0));
     const all = [...preview.values()];
     return {
       ordinary: sum('ordinary'),

@@ -78,6 +78,9 @@ export interface InvoiceLine {
   unitAmount: number;
   /** Si viene de la cuota de un mes de un proyecto con presupuesto (BudgetProject.id). */
   projectId?: string | null;
+  /** Categoría del gasto que originó la línea (solo para cálculos, p. ej. excluir "Proyectos"
+   * del Sub-total del recibo; no se muestra como encabezado ni agrupador en el PDF). */
+  category?: string | null;
 }
 
 /** Desglose calculado de una factura. Se guarda tal cual al generarla (el PDF no cambia después). */

@@ -11,6 +11,8 @@ const COL_BUILDING = 440; // borde derecho de la columna "Monto en $"
 
 const rateFormat = new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
+const isProjectCategory = (category: string | null | undefined) => (category ?? '').trim().toLowerCase() === 'proyectos';
+
 /**
  * FACADE sobre pdf-lib: el resto del sistema solo conoce `render(data)`.
  * Sigue el formato de los recibos reales de la Junta de Condominio: encabezado con RIF,
@@ -77,10 +79,17 @@ export class PdfInvoiceFacade implements InvoicePdfRenderer {
 
     let buildingSubtotal = 0;
     let unitSubtotal = 0;
+    let buildingGrandTotal = 0; // incluye Proyectos: es la base del Total de más abajo, no del Sub-total.
     const reserveLines = detail.lines.filter((l) => l.kind === 'reserve');
     for (const line of detail.lines) {
       if (line.kind === 'reserve') continue;
       this.drawLine(w, line);
+      buildingGrandTotal += line.buildingAmount ?? 0;
+      // El Sub-total (base visual que se muestra justo antes del fondo de reserva) no cuenta los
+      // gastos de la categoría "Proyectos": ya tienen su propia cuota aparte. Esto es solo un
+      // cambio de presentación: el concepto se sigue mostrando con su monto, y la casa lo sigue
+      // pagando igual (va dentro del total del mes, más abajo).
+      if (isProjectCategory(line.category)) continue;
       buildingSubtotal += line.buildingAmount ?? 0;
       unitSubtotal += line.unitAmount;
     }
@@ -95,7 +104,9 @@ export class PdfInvoiceFacade implements InvoicePdfRenderer {
 
     w.ensure(20);
     w.page.drawRectangle({ x: LEFT, y: w.y - 5, width: RIGHT - LEFT, height: 18, color: TINT });
-    this.drawTotalRow(w, 'TOTAL DE GASTOS COMUNES DEL MES', buildingSubtotal + reserveBuilding, detail.monthTotal, 'bold', ACCENT);
+    // Total: a diferencia del Sub-total de arriba, sí incluye los gastos de Proyectos (más el
+    // fondo de reserva): es la suma de todo lo que se reparte este mes entre las casas.
+    this.drawTotalRow(w, 'TOTAL DE GASTOS COMUNES DEL MES', buildingGrandTotal + reserveBuilding, detail.monthTotal, 'bold', ACCENT);
     w.y -= 10;
 
     // ── Estado de cuenta ────────────────────────────────────────

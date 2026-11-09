@@ -75,7 +75,11 @@ export function calculateCondominiumInvoices(
   const common = new Map<string, number>(units.map((u) => [u.id, 0]));
   const extraordinary = new Map<string, number>(units.map((u) => [u.id, 0]));
   const income = new Map<string, number>(units.map((u) => [u.id, 0]));
+  // Base del fondo de reserva: gastos ordinarios y extraordinarios, EXCEPTO los de la
+  // categoría "Proyectos" (ya tienen su propia cuota aprobada en asamblea, no generan fondo).
+  const reserveBase = new Map<string, number>(units.map((u) => [u.id, 0]));
   const add = (m: Map<string, number>, id: string, v: number) => m.set(id, roundCents((m.get(id) ?? 0) + v));
+  const isProjectExpense = (e: BuildingExpense) => (e.category ?? '').trim().toLowerCase() === 'proyectos';
   // Error de redondeo acumulado por unidad (céntimos), compartido por todos los repartos del mes.
   let carry = units.map(() => 0);
   const split = (amount: number, weights: number[]) => {
@@ -108,30 +112,35 @@ export function calculateCondominiumInvoices(
 
   // 1. Gastos comunes ordinarios.
   for (const e of sheet.expenses.filter((x) => x.kind === 'ordinary')) {
+    const forReserve = !isProjectExpense(e);
     shareExpense(e).forEach((share, i) => {
       if (share === null) return;
       const id = units[i].id;
       add(common, id, share);
-      lines.get(id)!.push({ concept: e.concept, kind: 'ordinary', buildingAmount: e.amount, unitAmount: share });
+      if (forReserve) add(reserveBase, id, share);
+      lines.get(id)!.push({ concept: e.concept, kind: 'ordinary', buildingAmount: e.amount, unitAmount: share, category: e.category ?? null });
     });
   }
 
-  // 2. Cuotas extraordinarias (sí entran en la base del fondo de reserva, junto con los ordinarios).
+  // 2. Cuotas extraordinarias (entran en la base del fondo de reserva, junto con los ordinarios,
+  //    salvo las de proyectos con presupuesto: esas ya tienen su propia cuota aprobada aparte).
   for (const e of sheet.expenses.filter((x) => x.kind === 'extraordinary')) {
+    const forReserve = !isProjectExpense(e);
     shareExpense(e).forEach((share, i) => {
       if (share === null) return;
       const id = units[i].id;
       add(extraordinary, id, share);
-      lines.get(id)!.push({ concept: e.concept, kind: 'extraordinary', buildingAmount: e.amount, unitAmount: share, projectId: e.projectId ?? null });
+      if (forReserve) add(reserveBase, id, share);
+      lines.get(id)!.push({ concept: e.concept, kind: 'extraordinary', buildingAmount: e.amount, unitAmount: share, projectId: e.projectId ?? null, category: e.category ?? null });
     });
   }
 
-  // 3. Fondo de reserva: % del total de gastos (ordinarios + extraordinarios), repartido en
-  //    proporción a lo que cada unidad aporta a esos gastos.
-  const unitExpense = (u: UnitInput) => (common.get(u.id) ?? 0) + (extraordinary.get(u.id) ?? 0);
-  const expensesTotal = roundCents(units.reduce((s, u) => s + unitExpense(u), 0));
+  // 3. Fondo de reserva: % del total de gastos (ordinarios + extraordinarios, sin contar los
+  //    de proyectos), repartido en proporción a lo que cada unidad aporta a esa base.
+  const reserveShareOf = (u: UnitInput) => reserveBase.get(u.id) ?? 0;
+  const expensesTotal = roundCents(units.reduce((s, u) => s + reserveShareOf(u), 0));
   const reserveTotal = roundCents((expensesTotal * sheet.reserveFundPercent) / 100);
-  const reserves = split(reserveTotal, units.map(unitExpense));
+  const reserves = split(reserveTotal, units.map(reserveShareOf));
 
   // 4. Ingresos de la comunidad: se descuentan con el mismo reparto (fuera de la base del fondo).
   for (const e of sheet.expenses.filter((x) => x.kind === 'income')) {
