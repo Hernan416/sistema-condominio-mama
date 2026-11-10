@@ -2,7 +2,7 @@
 import AdminLayout from '@/layouts/AdminLayout.astro';
 import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
 import InvoiceGenerator from '@/components/domain/InvoiceGenerator';
-import { getAppName, getBillingService } from '@/services/container';
+import { getAppName, getBillingService, getCondominiumService } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateDto, toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { toInvoiceRowDto } from '@/adapters/invoiceDtoAdapter';
@@ -12,7 +12,8 @@ const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
 const { admin, condominium, condominiums, rate } = page;
 
-const period = periodFromQuery(Astro.url.searchParams);
+const full = await getCondominiumService().getWithSettings(condominium);
+const period = periodFromQuery(Astro.url.searchParams, new Date(), full.settings.billPreviousMonth ? 1 : 0);
 const { units, origin } = await getBillingService().preview(condominium, period);
 ---
 

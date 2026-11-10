@@ -30,6 +30,8 @@ export interface CondominiumSettings {
   openingBalance: number;
   /** Fecha de ese saldo inicial "YYYY-MM-DD". */
   openingBalanceDate: string | null;
+  /** Si factura el mes ya vencido (ej. en noviembre se trabaja octubre) en vez del mes en curso. */
+  billPreviousMonth: boolean;
 }
 
 export interface CondominiumWithSettings extends Condominium {

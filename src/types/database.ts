@@ -16,6 +16,7 @@ export interface CondominiumRow {
   aliquot_scheme?: unknown; // jsonb { mode, categories: [{ id, name, value }] }
   opening_balance?: number | string;
   opening_balance_date?: string | null;
+  bill_previous_month?: boolean;
 }
 
 export interface HouseRow {

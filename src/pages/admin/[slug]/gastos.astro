@@ -12,11 +12,11 @@ const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
 const { admin, condominium, condominiums, rate } = page;
 
-const period = periodFromQuery(Astro.url.searchParams);
-const [{ sheet, origin }, units, full] = await Promise.all([
+const full = await getCondominiumService().getWithSettings(condominium);
+const period = periodFromQuery(Astro.url.searchParams, new Date(), full.settings.billPreviousMonth ? 1 : 0);
+const [{ sheet, origin }, units] = await Promise.all([
   getBillingService().getSheet(condominium, period),
   getCondominiumService().listUnits(condominium),
-  getCondominiumService().getWithSettings(condominium),
 ]);
 ---
 

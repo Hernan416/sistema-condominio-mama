@@ -30,6 +30,7 @@ export const POST: APIRoute = async ({ locals, params, request, redirect }) => {
         dueDay: number('dueDay'),
         openingBalance: parseDecimalInput(String(form.get('openingBalance') ?? '')) ?? 0,
         openingBalanceDate: text('openingBalanceDate'),
+        billPreviousMonth: form.get('billPreviousMonth') === 'on',
       },
     });
     return back('guardado=1');

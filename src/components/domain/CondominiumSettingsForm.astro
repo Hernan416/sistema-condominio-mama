@@ -61,6 +61,13 @@ const pct = (n: number) => String(n).replace('.', ',');
       />
       <FormField id="dueDay" name="dueDay" label="Día de vencimiento (mes siguiente)" value={s.dueDay} inputmode="numeric" hint="Entre 1 y 28." />
     </div>
+    <label class="mt-4 flex items-start gap-2.5 text-sm">
+      <input type="checkbox" name="billPreviousMonth" class="mt-0.5 size-5 cursor-pointer accent-[var(--color-accent)]" checked={s.billPreviousMonth} />
+      <span>
+        <span class="font-bold text-ink">Facturar el mes ya vencido</span>
+        <span class="block text-ink-muted">Si está marcado, "Gastos" y "Facturas" abren por defecto en el mes anterior al actual (ej. en noviembre, el mes a anotar es octubre), para anotar los gastos ya cerrados en vez de los del mes en curso.</span>
+      </span>
+    </label>
   </section>
 
   <section id="caja" class="scroll-mt-6 rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-raised)] ring-1 ring-line">

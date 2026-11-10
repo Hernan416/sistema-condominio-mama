@@ -12,11 +12,11 @@ import Icon from '@/components/ui/Icon.astro';
 import Greeting from '@/components/ui/Greeting.astro';
 import FormSelect from '@/components/ui/FormSelect.astro';
 import Button from '@/components/ui/Button.astro';
-import { getAppName, getBillingService, getMetricsService } from '@/services/container';
+import { getAppName, getBillingService, getCondominiumService, getMetricsService } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
-import { allMonths, currentPeriod, formatPeriod, monthName, monthsLabel } from '@/utils/months';
+import { allMonths, currentPeriod, formatPeriod, monthName, monthsLabel, shiftPeriod } from '@/utils/months';
 import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
 import { debtAgeLabel } from '@/utils/ledger';
 
@@ -25,8 +25,10 @@ if (page instanceof Response) return page;
 const { admin, condominium, condominiums, rate } = page;
 const slug = condominium.slug;
 
-// Periodo de los números (por defecto, el mes actual). "Este mes" siempre es el actual.
-const now = currentPeriod();
+// Periodo de los números (por defecto, el mes a facturar: el actual, o el anterior si este
+// condominio factura el mes ya vencido). "Este mes" siempre es ese mismo periodo por defecto.
+const full = await getCondominiumService().getWithSettings(condominium);
+const now = full.settings.billPreviousMonth ? shiftPeriod(currentPeriod(), -1) : currentPeriod();
 const qMonth = Number(Astro.url.searchParams.get('mes'));
 const qYear = Number(Astro.url.searchParams.get('anio'));
 const pickedPeriod = qMonth >= 1 && qMonth <= 12 && qYear >= 2000 && qYear <= 2100;

@@ -22,11 +22,22 @@ export function currentPeriod(now: Date = new Date()): { month: number; year: nu
   return monthAndYearInCaracas(now);
 }
 
-/** Periodo de la URL (?mes=10&anio=2026); si falta o no es válido, el mes actual. */
-export function periodFromQuery(params: URLSearchParams, now: Date = new Date()): { month: number; year: number } {
+/** Suma (o resta, con delta negativo) meses a un periodo, pasando de año cuando hace falta. */
+export function shiftPeriod({ month, year }: { month: number; year: number }, delta: number): { month: number; year: number } {
+  const index = year * 12 + (month - 1) + delta;
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+}
+
+/**
+ * Periodo de la URL (?mes=10&anio=2026); si falta o no es válido, el mes por defecto.
+ * `lagMonths` desplaza ese valor por defecto hacia atrás (1 = el mes anterior al actual):
+ * lo usan los condominios que facturan el mes ya vencido en vez del mes en curso.
+ */
+export function periodFromQuery(params: URLSearchParams, now: Date = new Date(), lagMonths = 0): { month: number; year: number } {
   const month = Number(params.get('mes'));
   const year = Number(params.get('anio'));
-  return Number.isInteger(month) && month >= 1 && month <= 12 && Number.isInteger(year) && year >= 2000 && year <= 2100 ? { month, year } : currentPeriod(now);
+  const valid = Number.isInteger(month) && month >= 1 && month <= 12 && Number.isInteger(year) && year >= 2000 && year <= 2100;
+  return valid ? { month, year } : shiftPeriod(currentPeriod(now), -lagMonths);
 }
 
 /** "1 mes", "3 meses". */

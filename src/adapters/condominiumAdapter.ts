@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: CondominiumSettings = {
   dueDay: 5,
   openingBalance: 0,
   openingBalanceDate: null,
+  billPreviousMonth: false,
 };
 
 export function supabaseCondominiumToDomain(row: CondominiumRow): Condominium {
@@ -31,6 +32,7 @@ export function supabaseCondominiumWithSettings(row: CondominiumRow): Condominiu
       dueDay: row.due_day ?? DEFAULT_SETTINGS.dueDay,
       openingBalance: Number(row.opening_balance ?? 0),
       openingBalanceDate: row.opening_balance_date ?? null,
+      billPreviousMonth: row.bill_previous_month ?? DEFAULT_SETTINGS.billPreviousMonth,
     },
     aliquotScheme: parseAliquotScheme(row.aliquot_scheme),
   };
@@ -66,5 +68,6 @@ export function condominiumUpdateToRow(update: { name: string; city: string | nu
     due_day: s.dueDay,
     opening_balance: s.openingBalance,
     opening_balance_date: s.openingBalanceDate,
+    bill_previous_month: s.billPreviousMonth,
   };
 }
