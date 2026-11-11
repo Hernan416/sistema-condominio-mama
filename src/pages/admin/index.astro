@@ -6,12 +6,12 @@ import ExchangeRateBadge from '@/components/domain/ExchangeRateBadge.astro';
 import { getAppName, getCondominiumService, getExchangeRates } from '@/services/container';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { toCondominiumOverviewView } from '@/adapters/condominiumViewAdapter';
-import { currentPeriod, formatPeriod } from '@/utils/months';
 
 const admin = Astro.locals.admin!;
-const period = currentPeriod();
+// Cada condominio tiene su propio "mes de trabajo" (ver `defaultWorkingPeriod`), así que no hay
+// un único periodo para todos: el resumen de abajo lo muestra condominio por condominio.
 const [overview, rate] = await Promise.all([
-  getCondominiumService().overviewForAdmin(admin, period),
+  getCondominiumService().overviewForAdmin(admin),
   getExchangeRates().current(),
 ]);
 const condominiums = overview.map((o) => o.condominium);
@@ -24,8 +24,8 @@ const pending = overview.reduce((sum, o) => sum + o.pendingCount, 0);
       <p class="text-xl font-bold text-accent">¡Bienvenida{admin.name ? `, ${admin.name}` : ''}!</p>
       <h1 class="font-display mt-1 text-4xl font-semibold sm:text-5xl"><Greeting name={null} />. Estos son sus condominios</h1>
       <p class="mt-3 text-lg text-ink-muted">
-        Toque el condominio con el que quiere trabajar. {formatPeriod(period.month, period.year)}:{' '}
-        {pending === 0 ? 'todos los recibos del mes están listos.' : `faltan ${pending} recibos por emitir.`}
+        Toque el condominio con el que quiere trabajar.{' '}
+        {pending === 0 ? 'Todos los recibos del mes están listos.' : `Faltan ${pending} recibos por emitir en total.`}
       </p>
     </div>
     <ExchangeRateBadge rate={toExchangeRateView(rate)} />

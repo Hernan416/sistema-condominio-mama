@@ -7,11 +7,11 @@ import Button from '@/components/ui/Button.astro';
 import Meter from '@/components/ui/Meter.astro';
 import Alert from '@/components/ui/Alert.astro';
 import Icon from '@/components/ui/Icon.astro';
-import { getAppName, getBudgetService } from '@/services/container';
+import { getAppName, getBudgetService, getCondominiumService } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { formatUsd } from '@/utils/currency';
-import { allMonths, currentPeriod, formatPeriod } from '@/utils/months';
+import { allMonths, defaultWorkingPeriod, formatPeriod } from '@/utils/months';
 import { NotFoundError } from '@/services/errors';
 
 const page = await loadAdminCondominiumPage(Astro);
@@ -20,7 +20,8 @@ const { admin, condominium, condominiums, rate } = page;
 
 const projectId = Astro.params.id ?? '';
 const q = Astro.url.searchParams;
-const today = currentPeriod();
+const full = await getCondominiumService().getWithSettings(condominium);
+const today = defaultWorkingPeriod(full.settings);
 const month = Number(q.get('mes')) || today.month;
 const year = Number(q.get('anio')) || today.year;
 const years = [today.year - 1, today.year, today.year + 1, today.year + 2].map(String);

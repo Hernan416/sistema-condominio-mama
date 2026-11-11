@@ -1,9 +1,10 @@
-import type { AdminSession, BillingPeriod, Condominium, CondominiumOverview, CondominiumSettings, CondominiumWithSettings, House } from '@/types/domain';
+import type { AdminSession, Condominium, CondominiumOverview, CondominiumSettings, CondominiumWithSettings, House } from '@/types/domain';
 import type { CondominiumRepository, HouseRepository } from '@/services/contracts';
 import type { BillingService } from '@/services/billing/BillingService';
 import type { HouseProfile } from '@/adapters/houseAdapter';
 import { AccessDeniedError, NotFoundError, ValidationError } from '@/services/errors';
 import { resolveAliquots, validateScheme, type AliquotScheme } from '@/utils/aliquotScheme';
+import { defaultWorkingPeriod } from '@/utils/months';
 
 /** Condominios de cada administrador, sus datos de recibo y sus unidades. */
 export class CondominiumService {
@@ -26,15 +27,22 @@ export class CondominiumService {
     return condominium;
   }
 
-  /** Resumen del periodo por condominio: el total sale del cálculo de la relación de gastos. */
-  async overviewForAdmin(admin: AdminSession, period: BillingPeriod): Promise<CondominiumOverview[]> {
+  /**
+   * Resumen del periodo de CADA condominio: el total sale del cálculo de la relación de
+   * gastos. El periodo no es el mismo para todos: cada uno usa su propio "mes de trabajo"
+   * (el actual, o el anterior si factura el mes ya vencido — ver `defaultWorkingPeriod`).
+   */
+  async overviewForAdmin(admin: AdminSession, now: Date = new Date()): Promise<CondominiumOverview[]> {
     const condominiums = await this.listForAdmin(admin);
     return Promise.all(
       condominiums.map(async (condominium) => {
+        const full = await this.condominiums.findWithSettings(condominium.id);
+        const period = defaultWorkingPeriod(full?.settings ?? { billPreviousMonth: false }, now);
         const { units } = await this.billing.preview(condominium, period);
         const issued = units.filter((u) => u.invoice && u.invoice.status !== 'pending');
         return {
           condominium,
+          period,
           houseCount: units.length,
           generatedCount: issued.length,
           pendingCount: units.length - issued.length,

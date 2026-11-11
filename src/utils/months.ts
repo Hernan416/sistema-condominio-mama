@@ -29,6 +29,18 @@ export function shiftPeriod({ month, year }: { month: number; year: number }, de
 }
 
 /**
+ * Periodo "de trabajo" por defecto de un condominio: el mes actual, o el anterior si factura
+ * el mes ya vencido (`CondominiumSettings.billPreviousMonth`). Úsese en TODO lugar donde se
+ * proponga o asuma "el mes que se está facturando ahora" (relación de gastos, facturas,
+ * proyectos nuevos, resúmenes): nunca asumir `currentPeriod()` a secas para eso, porque cada
+ * condominio puede tener su propio desfase.
+ */
+export function defaultWorkingPeriod(settings: { billPreviousMonth: boolean }, now: Date = new Date()): { month: number; year: number } {
+  const period = currentPeriod(now);
+  return settings.billPreviousMonth ? shiftPeriod(period, -1) : period;
+}
+
+/**
  * Periodo de la URL (?mes=10&anio=2026); si falta o no es válido, el mes por defecto.
  * `lagMonths` desplaza ese valor por defecto hacia atrás (1 = el mes anterior al actual):
  * lo usan los condominios que facturan el mes ya vencido en vez del mes en curso.

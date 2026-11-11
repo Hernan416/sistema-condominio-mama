@@ -16,7 +16,7 @@ import { getAppName, getBillingService, getCondominiumService, getMetricsService
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
-import { allMonths, currentPeriod, formatPeriod, monthName, monthsLabel, shiftPeriod } from '@/utils/months';
+import { allMonths, defaultWorkingPeriod, formatPeriod, monthName, monthsLabel } from '@/utils/months';
 import { formatDateVe, isoDateInCaracas } from '@/utils/dates';
 import { debtAgeLabel } from '@/utils/ledger';
 
@@ -28,7 +28,7 @@ const slug = condominium.slug;
 // Periodo de los números (por defecto, el mes a facturar: el actual, o el anterior si este
 // condominio factura el mes ya vencido). "Este mes" siempre es ese mismo periodo por defecto.
 const full = await getCondominiumService().getWithSettings(condominium);
-const now = full.settings.billPreviousMonth ? shiftPeriod(currentPeriod(), -1) : currentPeriod();
+const now = defaultWorkingPeriod(full.settings);
 const qMonth = Number(Astro.url.searchParams.get('mes'));
 const qYear = Number(Astro.url.searchParams.get('anio'));
 const pickedPeriod = qMonth >= 1 && qMonth <= 12 && qYear >= 2000 && qYear <= 2100;

@@ -138,6 +138,8 @@ export interface HouseInvoiceSummary {
 /** Resumen de un condominio en un periodo (inicio del panel admin). */
 export interface CondominiumOverview {
   condominium: Condominium;
+  /** Mes de trabajo de ESTE condominio (puede diferir entre condominios, ver `billPreviousMonth`). */
+  period: BillingPeriod;
   houseCount: number;
   generatedCount: number;
   pendingCount: number;

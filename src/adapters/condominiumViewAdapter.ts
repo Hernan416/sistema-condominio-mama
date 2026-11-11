@@ -1,5 +1,6 @@
 import type { CondominiumOverview, ExchangeRate } from '@/types/domain';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
+import { formatPeriod } from '@/utils/months';
 
 /** Dominio → modelo de vista del resumen de condominios (total en USD y su referencia en Bs.). */
 export function toCondominiumOverviewView({ condominium, ...stats }: CondominiumOverview, rate: ExchangeRate | null) {
@@ -7,6 +8,7 @@ export function toCondominiumOverviewView({ condominium, ...stats }: Condominium
     slug: condominium.slug,
     name: condominium.name,
     city: condominium.city,
+    periodLabel: formatPeriod(stats.period.month, stats.period.year),
     houseCount: stats.houseCount,
     generatedCount: stats.generatedCount,
     pendingCount: stats.pendingCount,

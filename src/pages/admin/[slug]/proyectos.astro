@@ -6,17 +6,18 @@ import Disclosure from '@/components/ui/Disclosure.astro';
 import Meter from '@/components/ui/Meter.astro';
 import Alert from '@/components/ui/Alert.astro';
 import Icon from '@/components/ui/Icon.astro';
-import { getAppName, getBudgetService } from '@/services/container';
+import { getAppName, getBudgetService, getCondominiumService } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { formatUsd } from '@/utils/currency';
-import { allMonths, currentPeriod, formatPeriod } from '@/utils/months';
+import { allMonths, defaultWorkingPeriod, formatPeriod } from '@/utils/months';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
 const { admin, condominium, condominiums, rate } = page;
 
-const today = currentPeriod();
+const full = await getCondominiumService().getWithSettings(condominium);
+const today = defaultWorkingPeriod(full.settings);
 const years = [today.year - 1, today.year, today.year + 1, today.year + 2].map(String);
 const budget = getBudgetService();
 const projects = await budget.listProjects(condominium);
