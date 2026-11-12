@@ -108,7 +108,7 @@ export interface PlantillaPayment {
   house: string;
   date: string;
   amount: number;
-  method?: 'transfer' | 'mobile' | 'zelle' | 'cash_usd' | 'cash_ves' | 'other';
+  method?: 'transfer' | 'mobile' | 'zelle' | 'cash_usd' | 'other';
   reference?: string | null;
   amountVes?: number | null;
   exchangeRate?: number | null;

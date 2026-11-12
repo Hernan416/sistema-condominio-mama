@@ -1,31 +1,52 @@
 ---
-// Registrar una deuda existente (saldo anterior al sistema, acuerdo de pago, reparación…).
+// Registrar (o editar) una deuda existente (saldo anterior al sistema, acuerdo de pago, reparación…).
 import Button from '@/components/ui/Button.astro';
 import FormField from '@/components/ui/FormField.astro';
 
 interface Props {
   action: string;
   today: string;
+  /** Si se indica, el formulario edita esa deuda en vez de registrar una nueva. */
+  debtId?: string;
+  initialConcept?: string;
+  initialAmount?: string;
+  initialMonths?: number | null;
+  initialDate?: string;
+  initialDetail?: string | null;
+  submitLabel?: string;
 }
 
-const { action, today } = Astro.props;
+const {
+  action,
+  today,
+  debtId,
+  initialConcept = '',
+  initialAmount = '',
+  initialMonths = null,
+  initialDate = today,
+  initialDetail = null,
+  submitLabel = 'Agregar deuda',
+} = Astro.props;
+const uid = debtId ?? 'new';
 ---
 
 <form method="post" action={action} class="flex flex-col gap-4">
-  <FormField id="debt-concept" name="concept" label="Concepto" placeholder="Ej.: Saldo pendiente al 31/08/2026" maxlength={120} required />
+  {debtId && <input type="hidden" name="debtId" value={debtId} />}
+  <FormField id={`debt-concept-${uid}`} name="concept" label="Concepto" value={initialConcept} placeholder="Ej.: Saldo pendiente al 31/08/2026" maxlength={120} required />
   <div class="grid gap-4 sm:grid-cols-3">
-    <FormField id="debt-amount" name="amount" label="Monto (USD)" inputmode="decimal" placeholder="0,00" required />
-    <FormField id="debt-months" name="months" label="¿Cuántos meses son?" inputmode="numeric" placeholder="Ej.: 14" hint="Déjelo vacío si no son cuotas (multa, reparación)." />
-    <FormField id="debt-date" name="date" type="date" label="Fecha de origen" value={today} required hint="Define su antigüedad." />
+    <FormField id={`debt-amount-${uid}`} name="amount" label="Monto (USD)" value={initialAmount} inputmode="decimal" placeholder="0,00" required />
+    <FormField id={`debt-months-${uid}`} name="months" label="¿Cuántos meses son?" value={initialMonths} inputmode="numeric" placeholder="Ej.: 14" hint="Déjelo vacío si no son cuotas (multa, reparación)." />
+    <FormField id={`debt-date-${uid}`} name="date" type="date" label="Fecha de origen" value={initialDate} required hint="Define su antigüedad." />
   </div>
   <FormField
-    id="debt-detail"
+    id={`debt-detail-${uid}`}
     name="detail"
     label="Detalle (opcional)"
+    value={initialDetail}
     multiline
     rows={2}
     maxlength={500}
     placeholder="Ej.: Cuotas de mayo a agosto 2026 sin pagar según libro de la administración anterior."
   />
-  <div><Button type="submit" size="md" variant="secondary" class="!w-auto px-6">Agregar deuda</Button></div>
+  <div><Button type="submit" size="md" variant="secondary" class="!w-auto px-6">{submitLabel}</Button></div>
 </form>

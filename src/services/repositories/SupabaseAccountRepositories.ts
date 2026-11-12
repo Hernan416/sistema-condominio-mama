@@ -57,6 +57,12 @@ export class SupabaseHouseDebtRepository implements HouseDebtRepository {
     return debtRowToDomain(data);
   }
 
+  async update(id: string, debt: NewDebt): Promise<HouseDebt> {
+    const { data, error } = await this.db.from('house_debts').update(newDebtToRow(debt)).eq('id', id).select(DEBT_COLUMNS).single<HouseDebtRow>();
+    if (error) throw new Error(`No se pudo editar la deuda: ${error.message}`);
+    return debtRowToDomain(data);
+  }
+
   async delete(id: string): Promise<void> {
     const { error } = await this.db.from('house_debts').delete().eq('id', id);
     if (error) throw new Error(`No se pudo eliminar la deuda: ${error.message}`);

@@ -53,7 +53,7 @@ export function useBillingSheet({ condominiumSlug, units, initialPeriod, initial
     edit((d) => ({ ...d, expenses: [...d.expenses, expense] }));
     setTexts((t) => ({ ...t, [expense.id]: '' }));
   };
-  const updateExpense = (id: string, patch: Partial<Pick<BuildingExpense, 'concept' | 'category' | 'kind' | 'distribution'>>) =>
+  const updateExpense = (id: string, patch: Partial<Pick<BuildingExpense, 'concept' | 'category' | 'kind' | 'distribution' | 'includeInReceipt' | 'account'>>) =>
     edit((d) => ({ ...d, expenses: d.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)) }));
   const setExpenseAmount = (id: string, text: string) => {
     setTexts((t) => ({ ...t, [id]: text }));

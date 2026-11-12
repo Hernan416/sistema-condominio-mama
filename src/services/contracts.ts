@@ -74,6 +74,7 @@ export interface PaymentRepository {
 export interface HouseDebtRepository {
   listByCondominium(condominiumId: string): Promise<HouseDebt[]>;
   create(debt: NewDebt): Promise<HouseDebt>;
+  update(id: string, debt: NewDebt): Promise<HouseDebt>;
   delete(id: string): Promise<void>;
 }
 

@@ -71,7 +71,7 @@ export interface DebtInput {
   months: number | null;
 }
 
-const METHODS: PaymentMethod[] = ['transfer', 'mobile', 'zelle', 'cash_usd', 'cash_ves', 'other'];
+const METHODS: PaymentMethod[] = ['transfer', 'mobile', 'zelle', 'cash_usd', 'other'];
 const isDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T12:00:00Z`));
 const periodKey = (year: number, month: number) => year * 100 + month;
 
@@ -265,6 +265,25 @@ export class AccountService implements AccountLedger {
   // ── Deudas registradas ─────────────────────────────────────
   async addDebt(condominium: Condominium, houseId: string, input: DebtInput): Promise<HouseDebt> {
     await this.requireHouse(condominium, houseId);
+    return this.debts.create({ houseId, ...this.debtFieldsFrom(input) });
+  }
+
+  /** Corrige una deuda ya registrada (concepto, monto, fecha de origen, meses…). */
+  async updateDebt(condominium: Condominium, debtId: string, input: DebtInput): Promise<HouseDebt> {
+    const debts = await this.debts.listByCondominium(condominium.id);
+    const existing = debts.find((d) => d.id === debtId);
+    if (!existing) throw new NotFoundError('La deuda no existe en este condominio');
+    return this.debts.update(debtId, { houseId: existing.houseId, ...this.debtFieldsFrom(input) });
+  }
+
+  async deleteDebt(condominium: Condominium, debtId: string): Promise<void> {
+    const debts = await this.debts.listByCondominium(condominium.id);
+    if (!debts.some((d) => d.id === debtId)) throw new NotFoundError('La deuda no existe en este condominio');
+    await this.debts.delete(debtId);
+  }
+
+  /** Valida una deuda. Comparte registrar y editar. */
+  private debtFieldsFrom(input: DebtInput) {
     const concept = input.concept.trim();
     if (!concept) throw new ValidationError('La deuda necesita un concepto');
     if (!isDate(input.date)) throw new ValidationError('Fecha de origen inválida');
@@ -272,20 +291,13 @@ export class AccountService implements AccountLedger {
     if (input.months !== null && !(Number.isInteger(input.months) && input.months >= 1 && input.months <= 600)) {
       throw new ValidationError('Los meses deben ser un número entero entre 1 y 600 (o dejarlo vacío)');
     }
-    return this.debts.create({
-      houseId,
+    return {
       concept: concept.slice(0, 120),
       detail: input.detail?.trim().slice(0, 500) || null,
       date: input.date,
       amount: roundCents(input.amount),
       months: input.months,
-    });
-  }
-
-  async deleteDebt(condominium: Condominium, debtId: string): Promise<void> {
-    const debts = await this.debts.listByCondominium(condominium.id);
-    if (!debts.some((d) => d.id === debtId)) throw new NotFoundError('La deuda no existe en este condominio');
-    await this.debts.delete(debtId);
+    };
   }
 
   private async requireHouse(condominium: Condominium, houseId: string): Promise<House> {

@@ -1,0 +1,206 @@
+---
+// Finanzas: estadísticas y gráficas del condominio (caja, gastos por tipo, facturado/cobrado).
+// Solo lectura: los gastos se anotan en "Recibos" (paso 1, "Gastos del condominio"); esta
+// pantalla los resume y los grafica, mes por mes.
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import SummaryStrip from '@/components/ui/SummaryStrip.astro';
+import FormSelect from '@/components/ui/FormSelect.astro';
+import Button from '@/components/ui/Button.astro';
+import Icon from '@/components/ui/Icon.astro';
+import Meter from '@/components/ui/Meter.astro';
+import Alert from '@/components/ui/Alert.astro';
+import TrendChart from '@/components/domain/TrendChart.astro';
+import ExpenseBreakdownChart from '@/components/domain/ExpenseBreakdownChart.astro';
+import BalanceTrendChart from '@/components/domain/BalanceTrendChart.astro';
+import { getAppName, getBudgetService, getCondominiumService, getMetricsService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { CASH_ACCOUNT_LABELS, type CashAccount } from '@/types/accounts';
+import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
+import { roundCents } from '@/utils/billingCalculator';
+import { isoDateInCaracas } from '@/utils/dates';
+import { allMonths, defaultWorkingPeriod, formatPeriod, shiftPeriod } from '@/utils/months';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const full = await getCondominiumService().getWithSettings(condominium);
+const now = defaultWorkingPeriod(full.settings);
+const q = Astro.url.searchParams;
+const qMonth = Number(q.get('mes'));
+const qYear = Number(q.get('anio'));
+const period = qMonth >= 1 && qMonth <= 12 && qYear >= 2000 && qYear <= 2100 ? { month: qMonth, year: qYear } : now;
+const ok = q.get('ok')?.slice(0, 200) ?? null;
+const error = q.get('error')?.slice(0, 300) ?? null;
+
+const today = isoDateInCaracas(new Date());
+const metrics = getMetricsService();
+const m = await metrics.forCondominium(condominium, period, today);
+
+// Gastos de los últimos 6 meses, separados en Proyecto / Gasto común / Otros (y la caja de cada
+// mes), a partir de "ingresos y egresos" de cada uno (misma fuente que el reporte de Historial).
+const isProjectCategory = (category: string | null) => (category ?? '').trim().toLowerCase() === 'proyectos';
+const sixMonths = Array.from({ length: 6 }, (_, i) => shiftPeriod(period, i - 5));
+const cashFlows = await Promise.all(sixMonths.map((p) => metrics.monthlyCashFlow(condominium, p)));
+
+const expenseBreakdown = cashFlows.map((cf) => {
+  let common = 0;
+  let project = 0;
+  let other = 0;
+  for (const l of cf.expenseLines) {
+    if (isProjectCategory(l.category)) project = roundCents(project + l.amount);
+    else if (l.kind === 'ordinary') common = roundCents(common + l.amount);
+    else other = roundCents(other + l.amount);
+  }
+  return { label: cf.label, common, project, other };
+});
+const balanceTrend = cashFlows.map((cf) => ({ label: cf.label, balance: cf.closingBalance, income: cf.incomeTotal, expense: cf.expenseTotal }));
+const thisMonthBreakdown = expenseBreakdown[expenseBreakdown.length - 1];
+
+// Proyectos con presupuesto: cuánto se le ha facturado y recaudado a cada uno hasta este mes.
+const budget = getBudgetService();
+const projects = await budget.listProjects(condominium);
+const projectProgress = await Promise.all(projects.map((p) => budget.progress(condominium, p.id, period)));
+const projectPeriodLabel = (p: (typeof projects)[number]) =>
+  p.billingMode === 'single' ? `Facturado en ${formatPeriod(p.startMonth, p.startYear)}` : `Repartido en ${p.monthsCount} meses desde ${formatPeriod(p.startMonth, p.startYear)}`;
+
+// Las tres cuentas de dinero (efectivo USD, bolívares, Zelle): recibido de los vecinos según
+// cómo pagaron, menos gastado de los gastos (facturados o no) anotados con esa cuenta.
+const cashAccounts = await metrics.cashAccounts(condominium);
+const ACCOUNT_ORDER: CashAccount[] = ['cash_usd', 'bs', 'zelle'];
+
+const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
+const ves = (usd: number) => (rate ? formatVes(usdToVes(usd, rate.usdToVes)) : null);
+const pct = (v: number | null) => (v === null ? '—' : `${new Intl.NumberFormat('es-VE', { maximumFractionDigits: 0 }).format(v * 100)} %`);
+---
+
+<AdminLayout title={`Finanzas · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="finanzas">
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="finanzas"
+    rate={toExchangeRateView(rate)}
+    description="Cuánto dinero hay, cuánto entró y cuánto se gastó, mes por mes. Los gastos se anotan en «Recibos» → «Gastos del condominio»."
+  />
+
+  <div class="flex flex-col gap-6">
+    {ok && <Alert tone="info">{ok}</Alert>}
+    {error && <Alert>{error}</Alert>}
+
+    <form method="get" class="flex flex-wrap items-end gap-3">
+      <FormSelect id="f-mes" name="mes" label="Mes" value={String(period.month)} options={allMonths().map((x) => ({ value: String(x.value), label: x.label }))} />
+      <FormSelect id="f-anio" name="anio" label="Año" value={String(period.year)} options={years.map((y) => ({ value: String(y), label: String(y) }))} />
+      <Button type="submit" size="md" variant="secondary">Ver</Button>
+    </form>
+
+    <SummaryStrip
+      items={[
+        { label: 'Dinero en caja (hoy)', value: formatUsd(m.cash.balance), hint: ves(m.cash.balance) ?? undefined, tone: m.cash.balance < 0 ? 'warning' : 'accent' },
+        { label: `Facturado · ${formatPeriod(period.month, period.year).toLowerCase()}`, value: formatUsd(m.period.billed), hint: ves(m.period.billed) ?? undefined },
+        { label: 'Cobrado ese mes', value: formatUsd(m.period.collected), hint: `${pct(m.period.collectionRate)} de lo facturado`, tone: 'accent' },
+        { label: 'Por cobrar (total)', value: formatUsd(m.receivables.outstanding), hint: `${m.receivables.housesWithDebt} ${m.receivables.housesWithDebt === 1 ? 'casa' : 'casas'}`, tone: m.receivables.outstanding > 0 ? 'warning' : 'default' },
+      ]}
+    />
+
+    <TrendChart months={m.trend} />
+    <ExpenseBreakdownChart months={expenseBreakdown} />
+    <BalanceTrendChart months={balanceTrend} />
+
+    <div>
+      <h2 class="font-display mb-3 text-2xl font-semibold">Gastos de {formatPeriod(period.month, period.year).toLowerCase()}, por tipo</h2>
+      <SummaryStrip
+        items={[
+          { label: 'Gasto común', value: formatUsd(thisMonthBreakdown.common), hint: ves(thisMonthBreakdown.common) ?? undefined },
+          { label: 'Proyectos', value: formatUsd(thisMonthBreakdown.project), hint: ves(thisMonthBreakdown.project) ?? undefined },
+          { label: 'Otros', value: formatUsd(thisMonthBreakdown.other), hint: ves(thisMonthBreakdown.other) ?? undefined },
+          { label: 'Total gastado', value: formatUsd(roundCents(thisMonthBreakdown.common + thisMonthBreakdown.project + thisMonthBreakdown.other)), tone: 'warning' },
+        ]}
+      />
+    </div>
+
+    <section aria-labelledby="money-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <div>
+        <h2 id="money-title" class="font-display text-2xl font-semibold">Dinero por cuenta</h2>
+        <p class="text-sm text-ink-muted">
+          De siempre: lo recibido de los vecinos (transferencia, pago móvil u otro sin especificar cuentan como Bs.) menos lo gastado con esa cuenta
+          (anotado en <a href={`/admin/${condominium.slug}/finanzas/gastos`} class="font-bold text-accent underline">Gastos generales</a>). No incluye el saldo inicial.
+        </p>
+      </div>
+      <div class="grid gap-px overflow-hidden rounded-xl bg-line text-sm sm:grid-cols-3">
+        {
+          ACCOUNT_ORDER.map((k) => {
+            const a = cashAccounts[k];
+            return (
+              <div class="flex flex-col gap-2 bg-canvas/60 px-5 py-4">
+                <p class="text-base font-bold text-ink">{CASH_ACCOUNT_LABELS[k]}</p>
+                {
+                  k === 'bs' ? (
+                    <>
+                      <p class="tabular text-2xl font-bold text-accent">{formatVes(usdToVes(a.balance, rate?.usdToVes ?? 0))}</p>
+                      <p class="tabular text-sm text-ink-muted">≈ {formatUsd(a.balance)}</p>
+                    </>
+                  ) : (
+                    <p class="tabular text-2xl font-bold text-accent">{formatUsd(a.balance)}</p>
+                  )
+                }
+                <dl class="flex flex-col gap-1 text-xs text-ink-muted">
+                  <div class="flex justify-between gap-2"><dt>Recibido</dt><dd class="tabular">{formatUsd(a.received)}</dd></div>
+                  <div class="flex justify-between gap-2"><dt>Gastado</dt><dd class="tabular">{formatUsd(a.spent)}</dd></div>
+                </dl>
+              </div>
+            );
+          })
+        }
+      </div>
+    </section>
+
+    <section aria-labelledby="projects-title" class="flex flex-col gap-4">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="projects-title" class="font-display text-2xl font-semibold">Proyectos con presupuesto</h2>
+        <a href={`/admin/${condominium.slug}/proyectos`} class="text-base font-bold text-accent">Ver todos / crear uno</a>
+      </div>
+      <p class="text-base text-ink-muted">Cuánto se le ha facturado a los vecinos y cuánto han pagado de verdad, acumulado hasta {formatPeriod(period.month, period.year).toLowerCase()}.</p>
+      {
+        projects.length === 0 ? (
+          <p class="rounded-[var(--radius-card)] border-2 border-dashed border-line p-8 text-center text-lg text-ink-muted">Todavía no hay proyectos con presupuesto para este condominio.</p>
+        ) : (
+          <ul class="flex flex-col gap-4">
+            {projectProgress.map((pp) => {
+              const pctCollected = pp.targetTotal > 0 ? Math.round((pp.collectedTotal / pp.targetTotal) * 100) : 0;
+              const pendingToCollect = roundCents(pp.billedTotal - pp.collectedTotal);
+              return (
+                <li class="rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+                  <a href={`/admin/${condominium.slug}/proyectos/${pp.project.id}`} class="flex flex-wrap items-start justify-between gap-4 no-underline">
+                    <div>
+                      <p class="font-display text-xl font-semibold text-ink">{pp.project.name}</p>
+                      <p class="text-sm text-ink-muted">{projectPeriodLabel(pp.project)}</p>
+                    </div>
+                    <span class="inline-flex items-center gap-1.5 text-sm font-bold text-accent">Ver detalle <Icon name="arrow-right" size={16} /></span>
+                  </a>
+                  <div class="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                    <p><span class="block text-ink-muted">Meta</span><span class="tabular text-lg font-bold">{formatUsd(pp.targetTotal)}</span></p>
+                    <p><span class="block text-ink-muted">Facturado (gastado)</span><span class="tabular text-lg font-bold">{formatUsd(pp.billedTotal)}</span></p>
+                    <p><span class="block text-ink-muted">Recaudado (ingresado)</span><span class="tabular text-lg font-bold text-accent">{formatUsd(pp.collectedTotal)}</span></p>
+                    <p><span class="block text-ink-muted">Facturado sin cobrar</span><span class:list={['tabular text-lg font-bold', pendingToCollect > 0 ? 'text-warning' : 'text-ink-muted']}>{formatUsd(pendingToCollect)}</span></p>
+                  </div>
+                  <div class="mt-3 flex flex-col gap-1.5">
+                    <div class="flex items-baseline justify-between text-sm"><span class="text-ink-muted">Recaudado de la meta</span><span class="font-bold">{pctCollected}%</span></div>
+                    <Meter value={pp.collectedTotal} max={pp.targetTotal} label={`Recaudado de ${pp.project.name}`} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )
+      }
+    </section>
+
+    <p class="text-base text-ink-muted">
+      ¿Necesita el detalle línea por línea (ingresos, egresos y pagos de un mes concreto)?{' '}
+      <a href={`/admin/${condominium.slug}/cobranza?vista=caja&mes=${period.month}&anio=${period.year}`} class="font-bold text-accent underline">Véalo en Historial → Ingresos y egresos</a>.
+    </p>
+  </div>
+</AdminLayout>

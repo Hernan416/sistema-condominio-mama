@@ -1,0 +1,144 @@
+---
+// Línea: cuánto dinero hay en caja al cierre de cada mes (saldo inicial + ingresos − egresos).
+// Mismo estilo y paleta que TrendChart/ExpenseBreakdownChart.
+import { formatUsd } from '@/utils/currency';
+
+export interface BalanceMonth {
+  label: string;
+  balance: number;
+  income: number;
+  expense: number;
+}
+
+interface Props {
+  months: BalanceMonth[];
+}
+
+const { months } = Astro.props;
+const W = 720;
+const H = 220;
+const pad = { top: 24, right: 16, bottom: 30, left: 64 };
+const plotW = W - pad.left - pad.right;
+const plotH = H - pad.top - pad.bottom;
+
+const values = months.map((m) => m.balance);
+const dataMax = Math.max(...values, 0);
+const dataMin = Math.min(...values, 0);
+const span = Math.max(1, dataMax - dataMin);
+const rawStep = span / 4;
+const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+const step = [1, 2, 2.5, 5, 10].map((f) => f * magnitude).find((v) => v >= rawStep) ?? rawStep;
+const top = Math.ceil(dataMax / step) * step;
+const bottom = Math.floor(dataMin / step) * step;
+const ticks: number[] = [];
+for (let v = bottom; v <= top + step / 2; v += step) ticks.push(Math.round(v * 100) / 100);
+const range = Math.max(1e-9, top - bottom);
+const y = (v: number) => pad.top + plotH - ((v - bottom) / range) * plotH;
+
+const groupW = plotW / Math.max(1, months.length);
+const x = (i: number) => pad.left + groupW * i + groupW / 2;
+const points = months.map((m, i) => `${x(i)},${y(m.balance)}`).join(' ');
+const compact = (v: number) => (Math.abs(v) >= 1000 ? `$${new Intl.NumberFormat('es-VE', { maximumFractionDigits: 1 }).format(v / 1000)} mil` : `$${Math.round(v)}`);
+const last = months.length - 1;
+---
+
+<figure class="viz-root flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line" data-viz-chart>
+  <figcaption>
+    <h2 class="font-display text-2xl font-semibold">Dinero en caja</h2>
+    <p class="text-sm text-ink-muted">Saldo disponible al cierre de cada mes, en USD.</p>
+  </figcaption>
+
+  <div class="relative">
+    <svg viewBox={`0 0 ${W} ${H}`} class="block h-auto w-full" role="img" aria-label="Gráfico de línea: dinero en caja al cierre de cada mes. La tabla debajo tiene los mismos datos.">
+      {ticks.map((t) => (
+        <g>
+          <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke="var(--viz-grid)" stroke-width="1" />
+          <text x={pad.left - 8} y={y(t)} dy="0.32em" text-anchor="end" class="tabular" font-size="11" fill="var(--viz-muted)">{compact(t)}</text>
+        </g>
+      ))}
+      {bottom < 0 && top > 0 && <line x1={pad.left} x2={W - pad.right} y1={y(0)} y2={y(0)} stroke="var(--viz-axis)" stroke-width="1.5" />}
+
+      <polyline points={points} fill="none" stroke="var(--series-1)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+
+      {months.map((m, i) => (
+        <g>
+          <circle cx={x(i)} cy={y(m.balance)} r={i === last ? 4.5 : 3.5} fill="var(--series-1)" />
+          {i === last && (
+            <text x={x(i)} y={y(m.balance) - 10} text-anchor="middle" font-size="11" font-weight="700" fill="var(--viz-text)">
+              {formatUsd(m.balance)}
+            </text>
+          )}
+          <text x={x(i)} y={H - 8} text-anchor="middle" font-size="12" fill="var(--viz-muted)" font-weight={i === last ? '700' : '400'}>{m.label}</text>
+          <rect
+            x={pad.left + groupW * i}
+            y={pad.top}
+            width={groupW}
+            height={plotH}
+            fill="transparent"
+            tabindex="0"
+            class="viz-hit outline-none"
+            data-label={m.label}
+            data-values={JSON.stringify([
+              ['Saldo en caja', formatUsd(m.balance), 'var(--series-1)'],
+              ['Ingresos del mes', formatUsd(m.income), 'var(--series-2)'],
+              ['Egresos del mes', formatUsd(m.expense), 'var(--series-3)'],
+            ])}
+          />
+        </g>
+      ))}
+    </svg>
+    <div role="tooltip" class="viz-tooltip pointer-events-none absolute z-10 hidden min-w-44 rounded-xl bg-surface px-3 py-2 text-sm shadow-[var(--shadow-float)] ring-1 ring-line"></div>
+  </div>
+
+  <details class="text-sm">
+    <summary class="cursor-pointer font-bold text-accent">Ver como tabla</summary>
+    <div class="mt-3 relative overflow-x-auto">
+      <table class="w-full min-w-[480px]">
+        <thead>
+          <tr class="border-b border-line text-left text-xs uppercase tracking-[0.08em] text-ink-muted">
+            <th scope="col" class="py-2 pr-4">Mes</th>
+            <th scope="col" class="py-2 pr-4 text-right">Ingresos</th>
+            <th scope="col" class="py-2 pr-4 text-right">Egresos</th>
+            <th scope="col" class="py-2 pr-4 text-right">Saldo en caja</th>
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((m) => (
+            <tr class="border-b border-line last:border-b-0">
+              <th scope="row" class="py-2 pr-4 text-left font-bold">{m.label}</th>
+              <td class="tabular py-2 pr-4 text-right">{formatUsd(m.income)}</td>
+              <td class="tabular py-2 pr-4 text-right">{formatUsd(m.expense)}</td>
+              <td class="tabular py-2 pr-4 text-right font-bold">{formatUsd(m.balance)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<style>
+  .viz-root {
+    --series-1: #2a78d6;
+    --series-2: #1baf7a;
+    --series-3: #eb6834;
+    --viz-grid: var(--color-line);
+    --viz-axis: var(--color-line-strong);
+    --viz-text: var(--color-ink);
+    --viz-muted: var(--color-ink-muted);
+  }
+  :global(:root[data-theme='dark']) .viz-root {
+    --series-1: #3987e5;
+    --series-2: #199e70;
+    --series-3: #d95926;
+  }
+  .viz-hit:focus-visible {
+    stroke: var(--color-accent);
+    stroke-width: 2;
+  }
+</style>
+
+<script>
+  import { initChartTooltips } from '@/components/domain/chartTooltip';
+  initChartTooltips('[data-viz-chart]');
+</script>

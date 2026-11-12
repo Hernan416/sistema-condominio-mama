@@ -1,0 +1,27 @@
+import type { APIRoute } from 'astro';
+import { getAccountService } from '@/services/container';
+import { formReader, withAdminFormAction } from '@/services/condominiums/adminScope';
+import { parseAmountInput } from '@/utils/amountInput';
+import { formatUsd } from '@/utils/currency';
+
+/** POST (formulario) — corrige una deuda ya registrada (concepto, monto, fecha, meses…). */
+export const POST: APIRoute = async ({ locals, params, request }) => {
+  const { text } = formReader(await request.formData());
+  const houseId = params.houseId ?? '';
+  return withAdminFormAction(
+    locals.admin,
+    params.slug,
+    (slug) => `/admin/${slug}/casas/${houseId}#deudas`,
+    async (condominium) => {
+      const debt = await getAccountService().updateDebt(condominium, text('debtId', 64) ?? '', {
+        concept: text('concept', 120) ?? '',
+        detail: text('detail', 500),
+        date: text('date', 10) ?? '',
+        amount: parseAmountInput(text('amount', 30) ?? '') ?? 0,
+        months: text('months', 4) ? Number(text('months', 4)) : null,
+      });
+      return `Deuda "${debt.concept}" actualizada (${formatUsd(debt.amount)})`;
+    },
+    'admin-house:debt-edit',
+  );
+};

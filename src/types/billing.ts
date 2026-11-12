@@ -1,4 +1,5 @@
 // Modelo de facturación de condominio (Venezuela). Todos los montos en USD.
+import type { CashAccount } from '@/types/accounts';
 
 /**
  * ordinary: gasto común del mes (base del fondo de reserva).
@@ -32,6 +33,12 @@ export interface BuildingExpense {
   overrides?: Record<string, ExpenseOverride>;
   /** Si este gasto es la cuota de un mes de un proyecto con presupuesto (BudgetProject.id). */
   projectId?: string | null;
+  /** false = gasto general del condominio que NO se cobra a los vecinos (no entra en el recibo
+   * ni en el fondo de reserva), solo queda anotado para las estadísticas de Finanzas. Ausente o
+   * true = se factura normalmente (comportamiento de siempre). */
+  includeInReceipt?: boolean;
+  /** De qué cuenta salió este gasto (efectivo USD, bolívares o Zelle). Null/ausente = sin anotar. */
+  account?: CashAccount | null;
 }
 
 /** Cargo a una sola unidad (gasto no común): multas, reparaciones… Un monto negativo es un abono (crédito) a esa unidad. */

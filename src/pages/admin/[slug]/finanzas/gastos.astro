@@ -1,0 +1,133 @@
+---
+// Finanzas → Gastos generales: TODOS los gastos del mes (facturados o no), con su cuenta.
+// Los que no se facturan a los vecinos se anotan y se borran aquí; los que sí, se editan desde
+// "Recibos" → "Gastos del condominio" (es la misma relación de gastos, solo que acá se ve completa).
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
+import FormSelect from '@/components/ui/FormSelect.astro';
+import FormField from '@/components/ui/FormField.astro';
+import Button from '@/components/ui/Button.astro';
+import Alert from '@/components/ui/Alert.astro';
+import { getAppName, getBillingService, getCondominiumService } from '@/services/container';
+import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
+import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
+import { CASH_ACCOUNT_LABELS, type CashAccount } from '@/types/accounts';
+import { EXPENSE_CATEGORY_SUGGESTIONS } from '@/utils/expenseCatalog';
+import { formatUsd } from '@/utils/currency';
+import { allMonths, defaultWorkingPeriod, formatPeriod } from '@/utils/months';
+
+const page = await loadAdminCondominiumPage(Astro);
+if (page instanceof Response) return page;
+const { admin, condominium, condominiums, rate } = page;
+
+const full = await getCondominiumService().getWithSettings(condominium);
+const now = defaultWorkingPeriod(full.settings);
+const q = Astro.url.searchParams;
+const qMonth = Number(q.get('mes'));
+const qYear = Number(q.get('anio'));
+const period = qMonth >= 1 && qMonth <= 12 && qYear >= 2000 && qYear <= 2100 ? { month: qMonth, year: qYear } : now;
+const ok = q.get('ok')?.slice(0, 200) ?? null;
+const error = q.get('error')?.slice(0, 300) ?? null;
+
+const billing = getBillingService();
+const { sheet: currentSheet } = await billing.getSheet(condominium, period);
+const generalExpenseCategories = [...new Set([...currentSheet.expenses.map((e) => e.category?.trim()).filter((c): c is string => !!c), ...EXPENSE_CATEGORY_SUGGESTIONS])];
+const ACCOUNT_ORDER: CashAccount[] = ['cash_usd', 'bs', 'zelle'];
+
+const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
+---
+
+<AdminLayout title={`Gastos generales · ${condominium.name}`} appName={getAppName()} adminUsername={admin.username} condominiums={condominiums} activeSlug={condominium.slug} activeTab="finanzas-gastos">
+  <CondominiumHeader
+    name={condominium.name}
+    slug={condominium.slug}
+    city={condominium.city}
+    active="finanzas-gastos"
+    rate={toExchangeRateView(rate)}
+    description="Todos los gastos del mes (los que se facturan a los vecinos y los que son solo registro interno), con su cuenta."
+  />
+
+  <div class="flex flex-col gap-6">
+    {ok && <Alert tone="info">{ok}</Alert>}
+    {error && <Alert>{error}</Alert>}
+
+    <form method="get" class="flex flex-wrap items-end gap-3">
+      <FormSelect id="f-mes" name="mes" label="Mes" value={String(period.month)} options={allMonths().map((x) => ({ value: String(x.value), label: x.label }))} />
+      <FormSelect id="f-anio" name="anio" label="Año" value={String(period.year)} options={years.map((y) => ({ value: String(y), label: String(y) }))} />
+      <Button type="submit" size="md" variant="secondary">Ver</Button>
+    </form>
+
+    <section aria-labelledby="general-expenses-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+      <div>
+        <h2 id="general-expenses-title" class="font-display text-2xl font-semibold">Gastos de {formatPeriod(period.month, period.year).toLowerCase()}</h2>
+        <p class="text-sm text-ink-muted">
+          Todos los gastos del mes, con su cuenta. Los que ya se facturan a los vecinos (badge «En el recibo») se editan desde «Recibos» → «Gastos del condominio»;
+          acá solo se anotan o borran los que son puro registro interno.
+        </p>
+      </div>
+
+      {
+        currentSheet.expenses.length === 0 ? (
+          <p class="text-base text-ink-muted">Todavía no hay gastos anotados este mes.</p>
+        ) : (
+          <div class="relative overflow-x-auto rounded-xl ring-1 ring-line">
+            <table class="w-full min-w-[640px] text-sm">
+              <thead class="bg-canvas/60">
+                <tr class="border-b border-line text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted">
+                  <th scope="col" class="px-4 py-3">Concepto</th>
+                  <th scope="col" class="px-4 py-3">Categoría</th>
+                  <th scope="col" class="px-4 py-3">Cuenta</th>
+                  <th scope="col" class="px-4 py-3 text-right">Monto</th>
+                  <th scope="col" class="px-4 py-3">Estado</th>
+                  <th scope="col" class="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {currentSheet.expenses.map((e) => (
+                  <tr class="border-b border-line last:border-b-0">
+                    <td class="px-4 py-3 font-bold text-ink">{e.concept}</td>
+                    <td class="px-4 py-3 text-ink-muted">{e.category ?? '—'}</td>
+                    <td class="px-4 py-3 text-ink-muted">{e.account ? CASH_ACCOUNT_LABELS[e.account] : '—'}</td>
+                    <td class="tabular px-4 py-3 text-right font-bold">{formatUsd(e.amount)}</td>
+                    <td class="px-4 py-3">
+                      <span class:list={['inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold', e.includeInReceipt === false ? 'bg-sunken text-ink-muted' : 'bg-accent-tint text-accent-strong']}>
+                        {e.includeInReceipt === false ? 'Solo registro' : 'En el recibo'}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3">
+                      {e.includeInReceipt === false && (
+                        <form method="post" action={`/api/admin/${condominium.slug}/finanzas/gastos-eliminar`} onsubmit="return confirm('¿Eliminar este gasto general?')">
+                          <input type="hidden" name="month" value={period.month} />
+                          <input type="hidden" name="year" value={period.year} />
+                          <input type="hidden" name="expenseId" value={e.id} />
+                          <button type="submit" class="cursor-pointer text-xs font-bold text-danger underline">Eliminar</button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+
+      <details class="mt-2">
+        <summary class="cursor-pointer font-bold text-accent">+ Anotar un gasto general (no se cobra a los vecinos)</summary>
+        <form method="post" action={`/api/admin/${condominium.slug}/finanzas/gastos`} class="mt-4 flex flex-col gap-4">
+          <input type="hidden" name="month" value={period.month} />
+          <input type="hidden" name="year" value={period.year} />
+          <div class="grid gap-4 sm:grid-cols-2">
+            <FormField id="ge-concept" name="concept" label="Concepto" required maxlength={120} placeholder="Ej.: Reparación eléctrica del cuarto de bombas" />
+            <FormField id="ge-category" name="category" label="Categoría (opcional)" maxlength={60} list="general-expense-categories" placeholder="Ej.: Reparaciones" />
+            <datalist id="general-expense-categories">{generalExpenseCategories.map((c) => <option value={c} />)}</datalist>
+            <FormSelect id="ge-kind" name="kind" label="Tipo" value="ordinary" options={[{ value: 'ordinary', label: 'Gasto común' }, { value: 'extraordinary', label: 'Cuota extraordinaria' }]} />
+            <FormSelect id="ge-account" name="account" label="Cuenta" value="bs" options={ACCOUNT_ORDER.map((k) => ({ value: k, label: CASH_ACCOUNT_LABELS[k] }))} />
+            <FormField id="ge-amount" name="amount" label="Monto (USD)" inputmode="decimal" required placeholder="0,00" />
+          </div>
+          <div><Button type="submit" size="md" class="!w-auto px-6">Anotar gasto</Button></div>
+        </form>
+      </details>
+    </section>
+  </div>
+</AdminLayout>

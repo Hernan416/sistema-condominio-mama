@@ -13,10 +13,12 @@ interface Props {
   placeholder?: string;
   required?: boolean;
   maxlength?: number;
+  /** Id de un <datalist> con sugerencias (autocompletado libre, no una lista cerrada). */
+  list?: string;
   class?: string;
 }
 
-const { id, name, label, value, hint, multiline = false, rows = 3, type = 'text', inputmode, placeholder, required, maxlength, class: className } = Astro.props;
+const { id, name, label, value, hint, multiline = false, rows = 3, type = 'text', inputmode, placeholder, required, maxlength, list, class: className } = Astro.props;
 const hintId = hint ? `${id}-hint` : undefined;
 const control =
   'w-full rounded-xl bg-surface px-3 text-base text-ink ring-1 ring-inset ring-line placeholder:text-ink-muted/60 hover:ring-line-strong focus:outline-none focus:ring-2 focus:ring-accent';
@@ -28,7 +30,7 @@ const control =
     multiline ? (
       <textarea id={id} name={name} rows={rows} placeholder={placeholder} required={required} maxlength={maxlength} aria-describedby={hintId} class:list={[control, 'py-2.5']}>{value ?? ''}</textarea>
     ) : (
-      <input id={id} name={name} type={type} inputmode={inputmode} value={value ?? ''} placeholder={placeholder} required={required} maxlength={maxlength} aria-describedby={hintId} class:list={[control, 'min-h-11']} />
+      <input id={id} name={name} type={type} inputmode={inputmode} value={value ?? ''} placeholder={placeholder} required={required} maxlength={maxlength} list={list} aria-describedby={hintId} class:list={[control, 'min-h-11']} />
     )
   }
   {hint && <p id={hintId} class="text-xs text-ink-muted">{hint}</p>}

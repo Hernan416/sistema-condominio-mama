@@ -1,7 +1,7 @@
 import type { BillingPeriod, Condominium, House } from '@/types/domain';
 import type { BillingSheetRepository, CondominiumRepository, InvoiceRepository, PaymentRepository } from '@/services/contracts';
 import type { AccountService } from '@/services/accounts/AccountService';
-import type { PaymentMethod } from '@/types/accounts';
+import { accountOf, type CashAccount, type PaymentMethod } from '@/types/accounts';
 import { DEFAULT_SETTINGS } from '@/adapters/condominiumAdapter';
 import { roundCents } from '@/utils/billingCalculator';
 import { agingBucket, daysSince, type AgingBucket } from '@/utils/ledger';
@@ -97,6 +97,15 @@ export interface MonthlyCashFlow {
   expenseLines: CashFlowExpenseLine[];
   expenseTotal: number;
   closingBalance: number;
+}
+
+export interface CashAccountSummary {
+  /** Recibido de los vecinos (pagos) con ese método, de siempre. */
+  received: number;
+  /** Gastado, de los gastos (facturados o no) anotados con esa cuenta, de siempre. */
+  spent: number;
+  /** received − spent. No incluye el saldo inicial (ese es uno solo, sin cuenta asignada). */
+  balance: number;
 }
 
 const inMonth = (date: string, { month, year }: BillingPeriod) => date.startsWith(`${year}-${String(month).padStart(2, '0')}`);
@@ -260,5 +269,29 @@ export class MetricsService {
       expenseTotal,
       closingBalance: roundCents(openingBalance + incomeTotal - expenseTotal),
     };
+  }
+
+  /**
+   * Las tres "cuentas" de dinero del condominio (efectivo USD, bolívares, Zelle), de siempre:
+   * lo recibido de los vecinos según cómo pagaron, menos lo gastado de los gastos (facturados o
+   * no) que se anotaron con esa cuenta. No incluye el saldo inicial (ese no tiene cuenta propia).
+   */
+  async cashAccounts(condominium: Condominium): Promise<Record<CashAccount, CashAccountSummary>> {
+    const [accounts, sheets] = await Promise.all([this.accounts.accountsFor(condominium.id), this.sheets.listByCondominium(condominium.id)]);
+    const out: Record<CashAccount, CashAccountSummary> = {
+      cash_usd: { received: 0, spent: 0, balance: 0 },
+      bs: { received: 0, spent: 0, balance: 0 },
+      zelle: { received: 0, spent: 0, balance: 0 },
+    };
+    for (const account of accounts.values()) {
+      for (const p of account.payments) out[accountOf(p.method)].received = roundCents(out[accountOf(p.method)].received + p.amount);
+    }
+    for (const sheet of sheets) {
+      for (const e of sheet.expenses) {
+        if (e.account === 'cash_usd' || e.account === 'bs' || e.account === 'zelle') out[e.account].spent = roundCents(out[e.account].spent + e.amount);
+      }
+    }
+    for (const key of Object.keys(out) as CashAccount[]) out[key].balance = roundCents(out[key].received - out[key].spent);
+    return out;
   }
 }

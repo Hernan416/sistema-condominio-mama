@@ -1,0 +1,154 @@
+---
+// Columnas apiladas: gasto común, proyectos y otros, por mes (una sola escala, USD).
+// Mismo estilo y paleta que TrendChart (validada con validate_palette.js).
+import { formatUsd } from '@/utils/currency';
+
+export interface ExpenseBreakdownMonth {
+  label: string;
+  common: number;
+  project: number;
+  other: number;
+}
+
+interface Props {
+  months: ExpenseBreakdownMonth[];
+}
+
+const { months } = Astro.props;
+const series = [
+  { key: 'common', label: 'Gasto común', color: 'var(--series-1)' },
+  { key: 'other', label: 'Otros', color: 'var(--series-2)' },
+  { key: 'project', label: 'Proyectos', color: 'var(--series-3)' },
+] as const;
+
+const W = 720;
+const H = 260;
+const pad = { top: 28, right: 12, bottom: 34, left: 56 };
+const plotW = W - pad.left - pad.right;
+const plotH = H - pad.top - pad.bottom;
+
+const totals = months.map((m) => series.reduce((s, x) => s + m[x.key], 0));
+const max = Math.max(1, ...totals);
+const rawStep = max / 4;
+const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+const step = [1, 2, 2.5, 5, 10].map((f) => f * magnitude).find((v) => v >= rawStep) ?? rawStep;
+const top = Math.ceil(max / step) * step;
+const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
+const y = (v: number) => pad.top + plotH - (v / top) * plotH;
+
+const groupW = plotW / months.length;
+const barW = Math.min(64, groupW - 24);
+const compact = (v: number) => (v >= 1000 ? `$${new Intl.NumberFormat('es-VE', { maximumFractionDigits: 1 }).format(v / 1000)} mil` : `$${Math.round(v)}`);
+const last = months.length - 1;
+---
+
+<figure class="viz-root flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line" data-viz-chart>
+  <figcaption class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 class="font-display text-2xl font-semibold">Gastos por tipo</h2>
+      <p class="text-sm text-ink-muted">Gasto común, proyectos y otros (cuotas extraordinarias que no son de proyecto), en USD.</p>
+    </div>
+    <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted" aria-label="Leyenda">
+      {series.map((s) => (
+        <li class="inline-flex items-center gap-2"><span class="inline-block size-3 rounded-[3px]" style={`background:${s.color}`}></span>{s.label}</li>
+      ))}
+    </ul>
+  </figcaption>
+
+  <div class="relative">
+    <svg viewBox={`0 0 ${W} ${H}`} class="block h-auto w-full" role="img" aria-label="Gráfico de columnas apiladas: gastos por tipo, por mes. La tabla debajo tiene los mismos datos.">
+      {ticks.map((t) => (
+        <g>
+          <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke="var(--viz-grid)" stroke-width="1" />
+          <text x={pad.left - 8} y={y(t)} dy="0.32em" text-anchor="end" class="tabular" font-size="11" fill="var(--viz-muted)">{compact(t)}</text>
+        </g>
+      ))}
+      {months.map((m, gi) => {
+        const x = pad.left + gi * groupW + (groupW - barW) / 2;
+        let acc = 0;
+        const segments = series.map((s) => {
+          const v = m[s.key];
+          const y0 = y(acc);
+          acc += v;
+          const y1 = y(acc);
+          return { s, v, y0, y1 };
+        });
+        const totalLabel = totals[gi];
+        return (
+          <g>
+            {segments.map(({ s, v, y0, y1 }) => (v > 0 ? <rect x={x} y={y1} width={barW} height={Math.max(0, y0 - y1)} fill={s.color} class="viz-bar" /> : null))}
+            {gi === last && totalLabel > 0 && (
+              <text x={x + barW / 2} y={y(totalLabel) - 6} text-anchor="middle" font-size="11" font-weight="700" fill="var(--viz-text)">
+                {compact(totalLabel)}
+              </text>
+            )}
+            <text x={pad.left + gi * groupW + groupW / 2} y={H - 12} text-anchor="middle" font-size="12" fill="var(--viz-muted)" font-weight={gi === last ? '700' : '400'}>{m.label}</text>
+            <rect
+              x={pad.left + gi * groupW}
+              y={pad.top}
+              width={groupW}
+              height={plotH}
+              fill="transparent"
+              tabindex="0"
+              class="viz-hit outline-none"
+              data-label={m.label}
+              data-values={JSON.stringify([...series.map((s) => [s.label, formatUsd(m[s.key]), s.color]), ['Total', formatUsd(totalLabel), 'var(--viz-text)']])}
+            />
+          </g>
+        );
+      })}
+      <line x1={pad.left} x2={W - pad.right} y1={pad.top + plotH} y2={pad.top + plotH} stroke="var(--viz-axis)" stroke-width="1" />
+    </svg>
+    <div role="tooltip" class="viz-tooltip pointer-events-none absolute z-10 hidden min-w-44 rounded-xl bg-surface px-3 py-2 text-sm shadow-[var(--shadow-float)] ring-1 ring-line"></div>
+  </div>
+
+  <details class="text-sm">
+    <summary class="cursor-pointer font-bold text-accent">Ver como tabla</summary>
+    <div class="mt-3 relative overflow-x-auto">
+      <table class="w-full min-w-[480px]">
+        <thead>
+          <tr class="border-b border-line text-left text-xs uppercase tracking-[0.08em] text-ink-muted">
+            <th scope="col" class="py-2 pr-4">Mes</th>
+            {series.map((s) => <th scope="col" class="py-2 pr-4 text-right">{s.label}</th>)}
+            <th scope="col" class="py-2 pr-4 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((m, i) => (
+            <tr class="border-b border-line last:border-b-0">
+              <th scope="row" class="py-2 pr-4 text-left font-bold">{m.label}</th>
+              {series.map((s) => <td class="tabular py-2 pr-4 text-right">{formatUsd(m[s.key])}</td>)}
+              <td class="tabular py-2 pr-4 text-right font-bold">{formatUsd(totals[i])}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<style>
+  .viz-root {
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --viz-grid: var(--color-line);
+    --viz-axis: var(--color-line-strong);
+    --viz-text: var(--color-ink);
+    --viz-muted: var(--color-ink-muted);
+  }
+  :global(:root[data-theme='dark']) .viz-root {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+  }
+  .viz-hit:focus-visible {
+    stroke: var(--color-accent);
+    stroke-width: 2;
+  }
+</style>
+
+<script>
+  import { initChartTooltips } from '@/components/domain/chartTooltip';
+  initChartTooltips('[data-viz-chart]');
+</script>

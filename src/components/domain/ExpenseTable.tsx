@@ -3,6 +3,7 @@ import { InlineSelect } from '@/components/ui/InlineSelect';
 import { MoneyInput } from '@/components/ui/MoneyInput';
 import { TextInput } from '@/components/ui/TextInput';
 import type { BuildingExpense, Distribution, ExpenseKind } from '@/types/billing';
+import { CASH_ACCOUNT_LABELS, type CashAccount } from '@/types/accounts';
 import { EXPENSE_CATEGORY_SUGGESTIONS } from '@/utils/expenseCatalog';
 import { formatUsd } from '@/utils/currency';
 
@@ -21,7 +22,7 @@ interface Props {
   reserveFundPercent: number;
   disabled: boolean;
   onAdd: (kind: ExpenseKind) => void;
-  onChange: (id: string, patch: Partial<Pick<BuildingExpense, 'concept' | 'category' | 'kind' | 'distribution'>>) => void;
+  onChange: (id: string, patch: Partial<Pick<BuildingExpense, 'concept' | 'category' | 'kind' | 'distribution' | 'includeInReceipt' | 'account'>>) => void;
   onAmountChange: (id: string, text: string) => void;
   onRemove: (id: string) => void;
 }
@@ -35,6 +36,10 @@ const DISTRIBUTION_OPTIONS: { value: Distribution; label: string }[] = [
   { value: 'aliquot', label: 'Por alícuota' },
   { value: 'equal', label: 'Partes iguales' },
 ];
+const ACCOUNT_OPTIONS: { value: CashAccount | ''; label: string }[] = [
+  { value: '', label: 'Cuenta: sin anotar' },
+  ...(Object.entries(CASH_ACCOUNT_LABELS) as [CashAccount, string][]).map(([value, label]) => ({ value, label: `Cuenta: ${label}` })),
+];
 
 export function ExpenseTable({ expenses, texts, invalidIds, totals, reserveFundPercent, disabled, onAdd, onChange, onAmountChange, onRemove }: Props) {
   // Categorías para reutilizar o crear una nueva: las ya usadas este mes + unas sugeridas.
@@ -47,6 +52,7 @@ export function ExpenseTable({ expenses, texts, invalidIds, totals, reserveFundP
           <h2 id="expenses-title" className="font-display text-2xl font-semibold">Gastos del condominio</h2>
           <p className="mt-1 max-w-[70ch] text-sm text-ink-muted">
             Lo que gastó el condominio este mes (vigilancia, luz, limpieza…). El sistema lo reparte solo entre las casas, según su alícuota (su parte) o en partes iguales.
+            Esta es la relación completa de gastos (para las estadísticas de Finanzas); desmarque "Incluir en el recibo" en los que sean solo anotación y no deban cobrarse a los vecinos.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -100,6 +106,26 @@ export function ExpenseTable({ expenses, texts, invalidIds, totals, reserveFundP
                     highlighted={invalid}
                     disabled={disabled}
                     onValueChange={(t) => onAmountChange(e.id, t)}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-ink-muted">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-[var(--color-accent)]"
+                      checked={e.includeInReceipt !== false}
+                      disabled={disabled}
+                      onChange={(ev) => onChange(e.id, { includeInReceipt: ev.target.checked })}
+                    />
+                    Incluir en el recibo de los vecinos
+                  </label>
+                  <InlineSelect
+                    aria-label="De qué cuenta salió"
+                    value={e.account ?? ''}
+                    options={ACCOUNT_OPTIONS}
+                    disabled={disabled}
+                    onValueChange={(account) => onChange(e.id, { account: account || null })}
+                    className="w-auto min-w-44"
                   />
                 </div>
               </li>

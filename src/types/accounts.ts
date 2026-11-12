@@ -1,15 +1,34 @@
 // Cuentas por casa: pagos (abonos) y deudas registradas a mano. Montos en USD.
 
-export type PaymentMethod = 'transfer' | 'mobile' | 'zelle' | 'cash_usd' | 'cash_ves' | 'other';
+export type PaymentMethod = 'transfer' | 'mobile' | 'zelle' | 'cash_usd' | 'other';
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   transfer: 'Transferencia',
   mobile: 'Pago móvil',
   zelle: 'Zelle',
   cash_usd: 'Efectivo (USD)',
-  cash_ves: 'Efectivo (Bs.)',
   other: 'Otro',
 };
+
+/**
+ * Las tres "cuentas" de dinero que maneja un condominio, para Finanzas: efectivo en dólares,
+ * bolívares (banco/pago móvil/transferencia: no se distingue entre ellos) y Zelle.
+ */
+export type CashAccount = 'cash_usd' | 'bs' | 'zelle';
+
+export const CASH_ACCOUNT_LABELS: Record<CashAccount, string> = {
+  cash_usd: 'Efectivo (USD)',
+  bs: 'Bolívares (Bs.)',
+  zelle: 'Zelle',
+};
+
+/** A qué cuenta entra un pago de un vecino, según cómo pagó. Todo lo que no sea USD en efectivo
+ * ni Zelle se cuenta como bolívares (transferencia, pago móvil, u otro sin especificar). */
+export function accountOf(method: PaymentMethod): CashAccount {
+  if (method === 'cash_usd') return 'cash_usd';
+  if (method === 'zelle') return 'zelle';
+  return 'bs';
+}
 
 /** Pago o abono de una casa. Se aplica automáticamente a su deuda más antigua. */
 export interface Payment {

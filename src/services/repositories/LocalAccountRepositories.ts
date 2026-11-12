@@ -57,6 +57,15 @@ export class LocalHouseDebtRepository implements HouseDebtRepository {
     });
   }
 
+  update(id: string, debt: NewDebt): Promise<HouseDebt> {
+    return this.store.transaction((db) => {
+      const row = db.house_debts.find((d) => d.id === id);
+      if (!row) throw new Error('La deuda no existe');
+      Object.assign(row, newDebtToRow(debt));
+      return debtRowToDomain(row);
+    });
+  }
+
   delete(id: string): Promise<void> {
     return this.store.transaction((db) => {
       db.house_debts = db.house_debts.filter((d) => d.id !== id);

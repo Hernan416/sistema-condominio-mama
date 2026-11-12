@@ -4,7 +4,7 @@
 import ExchangeRateBadge from '@/components/domain/ExchangeRateBadge.astro';
 import Icon from '@/components/ui/Icon.astro';
 import type { ExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
-import { adminSections, monthlySteps, sectionOf, settingsTabs, type CondominiumTab } from '@/utils/adminSections';
+import { adminSections, financeTabs, monthlySteps, sectionOf, settingsTabs, type CondominiumTab } from '@/utils/adminSections';
 
 export type { CondominiumTab };
 
@@ -26,7 +26,7 @@ const { name, slug, city, active, rate, description, title, stepDone = {} } = As
 const sections = adminSections(slug);
 const current = sections.find((s) => s.id === sectionOf(active))!;
 const steps = current.id === 'recibos' ? monthlySteps(slug) : null;
-const subTabs = current.id === 'ajustes' ? settingsTabs(slug) : null;
+const subTabs = current.id === 'ajustes' ? settingsTabs(slug) : current.id === 'finanzas' ? financeTabs(slug) : null;
 const heading = title ?? (current.id === 'inicio' ? name : current.id === 'recibos' ? 'Recibos del mes' : current.label);
 ---
 
@@ -103,7 +103,7 @@ const heading = title ?? (current.id === 'inicio' ? name : current.id === 'recib
 
   {
     subTabs && (
-      <nav aria-label="Ajustes" class="flex flex-wrap gap-2">
+      <nav aria-label={current.label} class="flex flex-wrap gap-2">
         {subTabs.map((t) => (
           <a
             href={t.href}

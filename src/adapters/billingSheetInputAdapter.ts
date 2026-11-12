@@ -31,6 +31,7 @@ export function parseBillingSheetInput(body: unknown): BillingSheetInput | null 
     if (e.distribution !== 'aliquot' && e.distribution !== 'equal') return null;
     const overrides = parseOverrides(e.overrides);
     if (overrides === null) return null;
+    const account = e.account === 'cash_usd' || e.account === 'bs' || e.account === 'zelle' ? e.account : null;
     expenses.push({
       id: str(e.id) ?? undefined,
       concept: concept.slice(0, 120),
@@ -40,6 +41,8 @@ export function parseBillingSheetInput(body: unknown): BillingSheetInput | null 
       distribution: e.distribution,
       overrides,
       projectId,
+      includeInReceipt: e.includeInReceipt !== false,
+      account,
     });
   }
 

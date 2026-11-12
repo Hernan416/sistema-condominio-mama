@@ -110,8 +110,8 @@ export function calculateCondominiumInvoices(
     });
   };
 
-  // 1. Gastos comunes ordinarios.
-  for (const e of sheet.expenses.filter((x) => x.kind === 'ordinary')) {
+  // 1. Gastos comunes ordinarios (solo los que se facturan a las casas; ver includeInReceipt).
+  for (const e of sheet.expenses.filter((x) => x.kind === 'ordinary' && x.includeInReceipt !== false)) {
     const forReserve = !isProjectExpense(e);
     shareExpense(e).forEach((share, i) => {
       if (share === null) return;
@@ -124,7 +124,7 @@ export function calculateCondominiumInvoices(
 
   // 2. Cuotas extraordinarias (entran en la base del fondo de reserva, junto con los ordinarios,
   //    salvo las de proyectos con presupuesto: esas ya tienen su propia cuota aprobada aparte).
-  for (const e of sheet.expenses.filter((x) => x.kind === 'extraordinary')) {
+  for (const e of sheet.expenses.filter((x) => x.kind === 'extraordinary' && x.includeInReceipt !== false)) {
     const forReserve = !isProjectExpense(e);
     shareExpense(e).forEach((share, i) => {
       if (share === null) return;
@@ -143,7 +143,7 @@ export function calculateCondominiumInvoices(
   const reserves = split(reserveTotal, units.map(reserveShareOf));
 
   // 4. Ingresos de la comunidad: se descuentan con el mismo reparto (fuera de la base del fondo).
-  for (const e of sheet.expenses.filter((x) => x.kind === 'income')) {
+  for (const e of sheet.expenses.filter((x) => x.kind === 'income' && x.includeInReceipt !== false)) {
     shareExpense(e).forEach((share, i) => {
       if (share === null) return;
       const id = units[i].id;

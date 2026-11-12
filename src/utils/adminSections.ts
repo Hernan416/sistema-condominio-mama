@@ -2,16 +2,16 @@
 // Cinco secciones con nombres cotidianos; "Recibos del mes" y "Ajustes" agrupan dos pantallas.
 
 /** Pantalla concreta (una por página). */
-export type CondominiumTab = 'resumen' | 'facturas' | 'gastos' | 'casas' | 'cobranza' | 'proyectos' | 'alicuotas' | 'datos';
+export type CondominiumTab = 'resumen' | 'facturas' | 'gastos' | 'casas' | 'cobranza' | 'proyectos' | 'finanzas' | 'finanzas-gastos' | 'alicuotas' | 'datos';
 
-export type AdminSectionId = 'inicio' | 'recibos' | 'casas' | 'historial' | 'proyectos' | 'ajustes';
+export type AdminSectionId = 'inicio' | 'recibos' | 'casas' | 'historial' | 'proyectos' | 'finanzas' | 'ajustes';
 
 export interface AdminSection {
   id: AdminSectionId;
   label: string;
   /** Frase corta que explica para qué sirve (se muestra en el menú). */
   hint: string;
-  icon: 'home' | 'receipt' | 'houses' | 'cash' | 'settings' | 'chart';
+  icon: 'home' | 'receipt' | 'houses' | 'cash' | 'settings' | 'chart' | 'trend';
   href: string;
   tabs: CondominiumTab[];
 }
@@ -24,6 +24,7 @@ export function adminSections(slug: string): AdminSection[] {
     { id: 'casas', label: 'Casas y pagos', hint: 'Pagos y deudas', icon: 'houses', href: `${base}/casas`, tabs: ['casas'] },
     { id: 'historial', label: 'Historial', hint: 'Pagos, pendientes y caja', icon: 'cash', href: `${base}/cobranza`, tabs: ['cobranza'] },
     { id: 'proyectos', label: 'Proyectos', hint: 'Presupuestos especiales', icon: 'chart', href: `${base}/proyectos`, tabs: ['proyectos'] },
+    { id: 'finanzas', label: 'Finanzas', hint: 'Estadísticas y gráficas', icon: 'trend', href: `${base}/finanzas`, tabs: ['finanzas', 'finanzas-gastos'] },
     { id: 'ajustes', label: 'Ajustes', hint: 'Datos y alícuotas', icon: 'settings', href: `${base}/datos`, tabs: ['datos', 'alicuotas'] },
   ];
 }
@@ -45,5 +46,13 @@ export function settingsTabs(slug: string) {
   return [
     { tab: 'datos' as const, label: 'Datos del recibo y caja', href: `/admin/${slug}/datos` },
     { tab: 'alicuotas' as const, label: 'Alícuotas (cuánto paga cada casa)', href: `/admin/${slug}/alicuotas` },
+  ];
+}
+
+/** Sub-pantallas de "Finanzas". */
+export function financeTabs(slug: string) {
+  return [
+    { tab: 'finanzas' as const, label: 'Estadísticas', href: `/admin/${slug}/finanzas` },
+    { tab: 'finanzas-gastos' as const, label: 'Gastos generales', href: `/admin/${slug}/finanzas/gastos` },
   ];
 }

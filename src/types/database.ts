@@ -57,7 +57,7 @@ export interface PaymentRow {
   house_id: string;
   paid_on: string; // YYYY-MM-DD
   amount: number | string; // USD
-  method: 'transfer' | 'mobile' | 'zelle' | 'cash_usd' | 'cash_ves' | 'other';
+  method: 'transfer' | 'mobile' | 'zelle' | 'cash_usd' | 'other';
   reference: string | null;
   amount_ves: number | string | null;
   exchange_rate: number | string | null;
@@ -156,6 +156,10 @@ export interface BillingSheetRow {
     overrides?: Record<string, { mode: 'exempt' } | { mode: 'fixed'; amount: number }>;
     /** Si este gasto es la cuota de un proyecto con presupuesto (budget_projects.id). */
     project_id?: string | null;
+    /** false = gasto general que no se factura a los vecinos. Ausente o true = sí se factura. */
+    include_in_receipt?: boolean;
+    /** De qué cuenta salió (efectivo USD, bolívares, Zelle). Null/ausente = sin anotar. */
+    account?: 'cash_usd' | 'bs' | 'zelle' | null;
   }[];
   unit_charges: { id: string; house_id: string; concept: string; amount: number; recurring?: boolean }[];
   updated_at: string | null;
