@@ -15,7 +15,7 @@ import type { BillingSheet, InvoiceBreakdown } from '@/types/billing';
 import type { HouseUpdate } from '@/adapters/houseAdapter';
 import type { GeneratedInvoice } from '@/adapters/invoiceAdapter';
 import type { AliquotScheme } from '@/utils/aliquotScheme';
-import type { HouseDebt, Payment } from '@/types/accounts';
+import type { CashAccount, HouseDebt, Payment } from '@/types/accounts';
 import type { NewDebt, NewPayment } from '@/adapters/accountAdapter';
 import type { PreviousDebt } from '@/utils/billingCalculator';
 import type { BudgetProject } from '@/types/budget';
@@ -30,6 +30,7 @@ export interface CondominiumRepository {
   findWithSettings(id: string): Promise<CondominiumWithSettings | null>;
   update(id: string, update: { name: string; city: string | null; settings: CondominiumSettings }): Promise<CondominiumWithSettings>;
   saveAliquotScheme(id: string, scheme: AliquotScheme): Promise<void>;
+  saveAccountOpenings(id: string, openings: Record<CashAccount, number>, previous: Partial<Record<CashAccount, number>>): Promise<void>;
 }
 
 export interface HouseRepository {

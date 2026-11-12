@@ -4,6 +4,7 @@ import type { BillingService } from '@/services/billing/BillingService';
 import type { HouseProfile } from '@/adapters/houseAdapter';
 import { AccessDeniedError, NotFoundError, ValidationError } from '@/services/errors';
 import { resolveAliquots, validateScheme, type AliquotScheme } from '@/utils/aliquotScheme';
+import type { CashAccount } from '@/types/accounts';
 import { defaultWorkingPeriod } from '@/utils/months';
 
 /** Condominios de cada administrador, sus datos de recibo y sus unidades. */
@@ -122,6 +123,26 @@ export class CondominiumService {
     await this.condominiums.saveAliquotScheme(condominium.id, cleanScheme);
     if (changed.length > 0) await this.houses.updateMany(changed);
     return { units: await this.houses.listByCondominium(condominium.id), scheme: cleanScheme };
+  }
+
+  /** Fija el ajuste de partida (USD) de UNA cuenta, guardando el anterior para poder deshacerlo. */
+  async setAccountOpening(condominium: Condominium, account: CashAccount, openingUsd: number): Promise<void> {
+    if (!Number.isFinite(openingUsd) || Math.abs(openingUsd) > 1e9) throw new ValidationError('El monto no es válido');
+    const full = await this.getWithSettings(condominium);
+    await this.condominiums.saveAccountOpenings(
+      condominium.id,
+      { ...full.accountOpenings, [account]: Math.round(openingUsd * 100) / 100 },
+      { ...full.accountOpeningsPrevious, [account]: full.accountOpenings[account] },
+    );
+  }
+
+  /** Vuelve al ajuste que tenía la cuenta antes del último "Ajustar al monto real". */
+  async undoAccountOpening(condominium: Condominium, account: CashAccount): Promise<void> {
+    const full = await this.getWithSettings(condominium);
+    const before = full.accountOpeningsPrevious[account];
+    if (before === undefined) throw new ValidationError('Esa cuenta no tiene un ajuste anterior al que volver');
+    const { [account]: _undone, ...previous } = full.accountOpeningsPrevious;
+    await this.condominiums.saveAccountOpenings(condominium.id, { ...full.accountOpenings, [account]: before }, previous);
   }
 
   /** Ficha de la casa: datos del propietario, contacto y ocupación. */

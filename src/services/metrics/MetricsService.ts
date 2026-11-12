@@ -105,7 +105,11 @@ export interface CashAccountSummary {
   received: number;
   /** Gastado, de los gastos (facturados o no) anotados con esa cuenta, de siempre. */
   spent: number;
-  /** received − spent. No incluye el saldo inicial (ese es uno solo, sin cuenta asignada). */
+  /** Ajuste de partida de la cuenta ("Ajustar al monto real"); 0 si nunca se ajustó. */
+  opening: number;
+  /** Ajuste que tenía antes del último cambio (null si no hay a qué volver). */
+  previousOpening: number | null;
+  /** opening + received − spent. No incluye el saldo inicial general (ese no tiene cuenta). */
   balance: number;
 }
 
@@ -124,6 +128,8 @@ interface RawFinancials {
   payments: Payment[];
   sheets: BillingSheet[];
   accounts: Map<string, HouseAccount>;
+  accountOpenings: Record<CashAccount, number>;
+  accountOpeningsPrevious: Partial<Record<CashAccount, number>>;
 }
 
 /** Consolidado financiero de un condominio: facturado, cobrado, gastos, caja y cuentas por cobrar. */
@@ -144,7 +150,15 @@ export class MetricsService {
       this.sheets.listByCondominium(condominiumId),
       this.accounts.accountsFor(condominiumId),
     ]);
-    return { settings: full?.settings ?? DEFAULT_SETTINGS, invoices, payments, sheets, accounts };
+    return {
+      settings: full?.settings ?? DEFAULT_SETTINGS,
+      invoices,
+      payments,
+      sheets,
+      accounts,
+      accountOpenings: full?.accountOpenings ?? { cash_usd: 0, bs: 0, zelle: 0 },
+      accountOpeningsPrevious: full?.accountOpeningsPrevious ?? {},
+    };
   }
 
   async forCondominium(condominium: Condominium, period: BillingPeriod, today: string): Promise<CondominiumMetrics> {
@@ -328,11 +342,11 @@ export class MetricsService {
     };
   }
 
-  private cashAccountsFrom({ accounts, sheets }: RawFinancials): Record<CashAccount, CashAccountSummary> {
+  private cashAccountsFrom({ accounts, sheets, accountOpenings, accountOpeningsPrevious }: RawFinancials): Record<CashAccount, CashAccountSummary> {
     const out: Record<CashAccount, CashAccountSummary> = {
-      cash_usd: { received: 0, spent: 0, balance: 0 },
-      bs: { received: 0, spent: 0, balance: 0 },
-      zelle: { received: 0, spent: 0, balance: 0 },
+      cash_usd: { received: 0, spent: 0, opening: accountOpenings.cash_usd, previousOpening: accountOpeningsPrevious.cash_usd ?? null, balance: 0 },
+      bs: { received: 0, spent: 0, opening: accountOpenings.bs, previousOpening: accountOpeningsPrevious.bs ?? null, balance: 0 },
+      zelle: { received: 0, spent: 0, opening: accountOpenings.zelle, previousOpening: accountOpeningsPrevious.zelle ?? null, balance: 0 },
     };
     for (const account of accounts.values()) {
       for (const p of account.payments) out[accountOf(p.method)].received = roundCents(out[accountOf(p.method)].received + p.amount);
@@ -342,7 +356,7 @@ export class MetricsService {
         if (e.account === 'cash_usd' || e.account === 'bs' || e.account === 'zelle') out[e.account].spent = roundCents(out[e.account].spent + e.amount);
       }
     }
-    for (const key of Object.keys(out) as CashAccount[]) out[key].balance = roundCents(out[key].received - out[key].spent);
+    for (const key of Object.keys(out) as CashAccount[]) out[key].balance = roundCents(out[key].opening + out[key].received - out[key].spent);
     return out;
   }
 }

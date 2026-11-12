@@ -17,6 +17,7 @@ export interface CondominiumRow {
   opening_balance?: number | string;
   opening_balance_date?: string | null;
   bill_previous_month?: boolean;
+  account_openings?: unknown; // jsonb { cash_usd, bs, zelle } en USD
 }
 
 export interface HouseRow {

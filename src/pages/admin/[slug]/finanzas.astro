@@ -6,6 +6,7 @@ import AdminLayout from '@/layouts/AdminLayout.astro';
 import CondominiumHeader from '@/components/domain/CondominiumHeader.astro';
 import SummaryStrip from '@/components/ui/SummaryStrip.astro';
 import FormSelect from '@/components/ui/FormSelect.astro';
+import FormField from '@/components/ui/FormField.astro';
 import Button from '@/components/ui/Button.astro';
 import Icon from '@/components/ui/Icon.astro';
 import Meter from '@/components/ui/Meter.astro';
@@ -128,12 +129,13 @@ const pct = (v: number | null) => (v === null ? '—' : `${new Intl.NumberFormat
       />
     </div>
 
-    <section aria-labelledby="money-title" class="flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
+    <section aria-labelledby="money-title" id="dinero-por-cuenta" class="scroll-mt-6 flex flex-col gap-4 rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
       <div>
         <h2 id="money-title" class="font-display text-2xl font-semibold">Dinero por cuenta</h2>
         <p class="text-sm text-ink-muted">
           De siempre: lo recibido de los vecinos (transferencia, pago móvil u otro sin especificar cuentan como Bs.) menos lo gastado con esa cuenta
-          (anotado en <a href={`/admin/${condominium.slug}/finanzas/gastos`} class="font-bold text-accent underline">Gastos generales</a>). No incluye el saldo inicial.
+          (anotado en <a href={`/admin/${condominium.slug}/finanzas/gastos`} class="font-bold text-accent underline">Gastos generales</a>), más el ajuste que haga con «Ajustar al monto real».
+          Los gastos sin cuenta asignada no se restan de ninguna.
         </p>
       </div>
       <div class="grid gap-px overflow-hidden rounded-xl bg-line text-sm sm:grid-cols-3">
@@ -156,7 +158,24 @@ const pct = (v: number | null) => (v === null ? '—' : `${new Intl.NumberFormat
                 <dl class="flex flex-col gap-1 text-xs text-ink-muted">
                   <div class="flex justify-between gap-2"><dt>Recibido</dt><dd class="tabular">{formatUsd(a.received)}</dd></div>
                   <div class="flex justify-between gap-2"><dt>Gastado</dt><dd class="tabular">{formatUsd(a.spent)}</dd></div>
+                  {a.opening !== 0 && <div class="flex justify-between gap-2"><dt>Ajuste de partida</dt><dd class="tabular">{formatUsd(a.opening)}</dd></div>}
                 </dl>
+                <details class="mt-1">
+                  <summary class="cursor-pointer text-xs font-bold text-accent underline">Ajustar al monto real</summary>
+                  <form method="post" action={`/api/admin/${condominium.slug}/finanzas/ajustar-cuenta`} class="mt-2 flex flex-col gap-2">
+                    <input type="hidden" name="account" value={k} />
+                    <FormField id={`adj-${k}`} name="amount" label={k === 'bs' ? 'Lo que tengo ahora (Bs.)' : 'Lo que tengo ahora (USD)'} inputmode="decimal" required placeholder="0,00" />
+                    {k === 'bs' && <p class="text-xs text-ink-muted">Se convierte a dólares con la tasa de hoy.</p>}
+                    <div><Button type="submit" size="md" variant="secondary" class="!w-auto px-4">Ajustar</Button></div>
+                  </form>
+                </details>
+                {a.previousOpening !== null && (
+                  <form method="post" action={`/api/admin/${condominium.slug}/finanzas/ajustar-cuenta`} onsubmit="return confirm('¿Volver al saldo que tenía esta cuenta antes del último ajuste?')">
+                    <input type="hidden" name="account" value={k} />
+                    <input type="hidden" name="reset" value="1" />
+                    <button type="submit" class="cursor-pointer text-xs font-bold text-danger underline">Volver al saldo anterior</button>
+                  </form>
+                )}
               </div>
             );
           })

@@ -1,5 +1,6 @@
 import type { Condominium, CondominiumSettings, CondominiumWithSettings } from '@/types/domain';
 import type { CondominiumRow } from '@/types/database';
+import type { CashAccount } from '@/types/accounts';
 import { EMPTY_SCHEME, validateScheme, type AliquotScheme } from '@/utils/aliquotScheme';
 
 export const DEFAULT_SETTINGS: CondominiumSettings = {
@@ -35,7 +36,25 @@ export function supabaseCondominiumWithSettings(row: CondominiumRow): Condominiu
       billPreviousMonth: row.bill_previous_month ?? DEFAULT_SETTINGS.billPreviousMonth,
     },
     aliquotScheme: parseAliquotScheme(row.aliquot_scheme),
+    accountOpenings: parseAccountOpenings(row.account_openings),
+    accountOpeningsPrevious: parseAccountOpeningsPrevious(row.account_openings),
   };
+}
+
+/** El jsonb viene de la base: { cash_usd, bs, zelle, previous: { … } }. */
+export function parseAccountOpeningsPrevious(value: unknown): Partial<Record<CashAccount, number>> {
+  const v = typeof value === 'object' && value !== null ? (value as Record<string, unknown>).previous : null;
+  const p = typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
+  const out: Partial<Record<CashAccount, number>> = {};
+  for (const k of ['cash_usd', 'bs', 'zelle'] as const) if (typeof p[k] === 'number' && Number.isFinite(p[k])) out[k] = p[k] as number;
+  return out;
+}
+
+/** El jsonb viene de la base: lo que no sea un número válido cuenta como 0. */
+export function parseAccountOpenings(value: unknown): Record<CashAccount, number> {
+  const v = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
+  return { cash_usd: num(v.cash_usd), bs: num(v.bs), zelle: num(v.zelle) };
 }
 
 /** El jsonb viene de la base: si no tiene forma válida se usa un esquema vacío. */

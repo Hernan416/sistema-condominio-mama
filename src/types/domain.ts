@@ -1,7 +1,7 @@
 // Modelos de dominio (camelCase). Es lo único que ve la UI; nunca filas crudas de la base.
 import type { InvoiceBreakdown } from '@/types/billing';
 import type { AliquotScheme } from '@/utils/aliquotScheme';
-import type { Occupancy } from '@/types/accounts';
+import type { CashAccount, Occupancy } from '@/types/accounts';
 
 export type InvoiceStatus = 'pending' | 'generated' | 'paid';
 
@@ -36,6 +36,11 @@ export interface CondominiumSettings {
 
 export interface CondominiumWithSettings extends Condominium {
   settings: CondominiumSettings;
+  /** Ajuste de partida de cada cuenta de dinero (USD), para que "Dinero por cuenta" coincida con
+   * lo que realmente hay. Se calcula con "Ajustar al monto real"; no toca recibos ni pagos. */
+  accountOpenings: Record<CashAccount, number>;
+  /** Ajuste que tenía cada cuenta justo antes del último "Ajustar al monto real" (para volver a él). */
+  accountOpeningsPrevious: Partial<Record<CashAccount, number>>;
   /** Tipos de alícuota ("Casa pequeña", "Casa grande"…) y cómo se interpretan. */
   aliquotScheme: AliquotScheme;
 }

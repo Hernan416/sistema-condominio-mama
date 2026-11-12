@@ -1,12 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { condominiumUpdateToRow, supabaseCondominiumToDomain, supabaseCondominiumWithSettings } from '@/adapters/condominiumAdapter';
 import type { CondominiumRow } from '@/types/database';
+import type { CashAccount } from '@/types/accounts';
 import type { Condominium, CondominiumSettings, CondominiumWithSettings } from '@/types/domain';
 import type { AliquotScheme } from '@/utils/aliquotScheme';
 import type { CondominiumRepository } from '@/services/contracts';
 
 const COLUMNS = 'id, name, slug, city';
-const FULL_COLUMNS = `${COLUMNS}, rif, address, administrator_name, administrator_rif, payment_instructions, default_reserve_fund_percent, due_day, aliquot_scheme, opening_balance, opening_balance_date, bill_previous_month`;
+const FULL_COLUMNS = `${COLUMNS}, rif, address, administrator_name, administrator_rif, payment_instructions, default_reserve_fund_percent, due_day, aliquot_scheme, opening_balance, opening_balance_date, bill_previous_month, account_openings`;
 
 export class SupabaseCondominiumRepository implements CondominiumRepository {
   constructor(private readonly db: SupabaseClient) {}
@@ -49,5 +50,10 @@ export class SupabaseCondominiumRepository implements CondominiumRepository {
   async saveAliquotScheme(id: string, scheme: AliquotScheme): Promise<void> {
     const { error } = await this.db.from('condominiums').update({ aliquot_scheme: scheme }).eq('id', id);
     if (error) throw new Error(`No se pudieron guardar los tipos de alícuota: ${error.message}`);
+  }
+
+  async saveAccountOpenings(id: string, openings: Record<CashAccount, number>, previous: Partial<Record<CashAccount, number>>): Promise<void> {
+    const { error } = await this.db.from('condominiums').update({ account_openings: { ...openings, previous } }).eq('id', id);
+    if (error) throw new Error(`No se pudo guardar el ajuste de las cuentas: ${error.message}`);
   }
 }

@@ -1,6 +1,7 @@
 import { condominiumUpdateToRow, supabaseCondominiumToDomain, supabaseCondominiumWithSettings } from '@/adapters/condominiumAdapter';
 import type { LocalJsonStore } from '@/services/local/LocalJsonStore';
 import type { CondominiumRepository } from '@/services/contracts';
+import type { CashAccount } from '@/types/accounts';
 import type { Condominium, CondominiumSettings, CondominiumWithSettings } from '@/types/domain';
 import type { AliquotScheme } from '@/utils/aliquotScheme';
 
@@ -45,6 +46,14 @@ export class LocalCondominiumRepository implements CondominiumRepository {
       const row = db.condominiums.find((c) => c.id === id);
       if (!row) throw new Error('El condominio no existe');
       row.aliquot_scheme = scheme;
+    });
+  }
+
+  saveAccountOpenings(id: string, openings: Record<CashAccount, number>, previous: Partial<Record<CashAccount, number>>): Promise<void> {
+    return this.store.transaction((db) => {
+      const row = db.condominiums.find((c) => c.id === id);
+      if (!row) throw new Error('El condominio no existe');
+      row.account_openings = { ...openings, previous };
     });
   }
 }
