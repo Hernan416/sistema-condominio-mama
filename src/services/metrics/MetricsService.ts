@@ -1,7 +1,8 @@
-import type { BillingPeriod, Condominium, House } from '@/types/domain';
+import type { BillingPeriod, Condominium, CondominiumSettings, House, Invoice } from '@/types/domain';
+import type { BillingSheet } from '@/types/billing';
 import type { BillingSheetRepository, CondominiumRepository, InvoiceRepository, PaymentRepository } from '@/services/contracts';
-import type { AccountService } from '@/services/accounts/AccountService';
-import { accountOf, type CashAccount, type PaymentMethod } from '@/types/accounts';
+import type { AccountService, HouseAccount } from '@/services/accounts/AccountService';
+import { accountOf, type CashAccount, type Payment, type PaymentMethod } from '@/types/accounts';
 import { DEFAULT_SETTINGS } from '@/adapters/condominiumAdapter';
 import { roundCents } from '@/utils/billingCalculator';
 import { agingBucket, daysSince, type AgingBucket } from '@/utils/ledger';
@@ -115,6 +116,16 @@ const shiftMonth = ({ month, year }: BillingPeriod, delta: number): BillingPerio
 };
 const sameMonth = (a: BillingPeriod, b: BillingPeriod) => a.month === b.month && a.year === b.year;
 
+/** Lo que hace falta para calcular cualquier métrica: una sola carga, se reutiliza para todas
+ * (antes cada método volvía a leer invoices/payments/sheets/accounts por su cuenta). */
+interface RawFinancials {
+  settings: CondominiumSettings;
+  invoices: Invoice[];
+  payments: Payment[];
+  sheets: BillingSheet[];
+  accounts: Map<string, HouseAccount>;
+}
+
 /** Consolidado financiero de un condominio: facturado, cobrado, gastos, caja y cuentas por cobrar. */
 export class MetricsService {
   constructor(
@@ -125,16 +136,73 @@ export class MetricsService {
     private readonly accounts: AccountService,
   ) {}
 
-  async forCondominium(condominium: Condominium, period: BillingPeriod, today: string): Promise<CondominiumMetrics> {
+  private async rawData(condominiumId: string): Promise<RawFinancials> {
     const [full, invoices, payments, sheets, accounts] = await Promise.all([
-      this.condominiums.findWithSettings(condominium.id),
-      this.invoices.listIssuedByCondominium(condominium.id),
-      this.payments.listByCondominium(condominium.id),
-      this.sheets.listByCondominium(condominium.id),
-      this.accounts.accountsFor(condominium.id),
+      this.condominiums.findWithSettings(condominiumId),
+      this.invoices.listIssuedByCondominium(condominiumId),
+      this.payments.listByCondominium(condominiumId),
+      this.sheets.listByCondominium(condominiumId),
+      this.accounts.accountsFor(condominiumId),
     ]);
-    const settings = full?.settings ?? DEFAULT_SETTINGS;
+    return { settings: full?.settings ?? DEFAULT_SETTINGS, invoices, payments, sheets, accounts };
+  }
 
+  async forCondominium(condominium: Condominium, period: BillingPeriod, today: string): Promise<CondominiumMetrics> {
+    return this.metricsFrom(await this.rawData(condominium.id), period, today);
+  }
+
+  /**
+   * Ingresos y egresos de UN mes concreto (no acumulado a hoy): el saldo inicial es la caja
+   * acumulada hasta el mes anterior, y los movimientos son solo los de este mes. Así, elegir
+   * septiembre muestra los movimientos de septiembre, con su propio saldo de cierre.
+   */
+  async monthlyCashFlow(condominium: Condominium, period: BillingPeriod): Promise<MonthlyCashFlow> {
+    const data = await this.rawData(condominium.id);
+    return this.cashFlowFrom(data, period);
+  }
+
+  /**
+   * Las tres "cuentas" de dinero del condominio (efectivo USD, bolívares, Zelle), de siempre:
+   * lo recibido de los vecinos según cómo pagaron, menos lo gastado de los gastos (facturados o
+   * no) que se anotaron con esa cuenta. No incluye el saldo inicial (ese no tiene cuenta propia).
+   */
+  async cashAccounts(condominium: Condominium): Promise<Record<CashAccount, CashAccountSummary>> {
+    const data = await this.rawData(condominium.id);
+    return this.cashAccountsFrom(data);
+  }
+
+  /**
+   * Todo lo que necesita la pantalla de Finanzas (resumen del mes, tendencia de 6 meses, caja
+   * por cuenta) con una sola carga de datos: antes, cada pieza (forCondominium, 6×
+   * monthlyCashFlow, cashAccounts) volvía a leer invoices/payments/sheets/accounts por su
+   * cuenta (8+ cargas completas del libro de cuentas); con un condominio de muchas casas eso
+   * se notaba al abrir la página.
+   */
+  async financeOverview(
+    condominium: Condominium,
+    period: BillingPeriod,
+    today: string,
+  ): Promise<{
+    metrics: CondominiumMetrics;
+    cashFlows: MonthlyCashFlow[];
+    cashAccounts: Record<CashAccount, CashAccountSummary>;
+    accounts: Map<string, HouseAccount>;
+    sheets: BillingSheet[];
+  }> {
+    const data = await this.rawData(condominium.id);
+    return {
+      metrics: this.metricsFrom(data, period, today),
+      cashFlows: Array.from({ length: 6 }, (_, i) => this.cashFlowFrom(data, shiftMonth(period, i - 5))),
+      cashAccounts: this.cashAccountsFrom(data),
+      // Para pasarlo a BudgetService.progress por cada proyecto sin releer el libro de cuentas.
+      accounts: data.accounts,
+      // Para calcular, p. ej., cuánto se ha gastado de verdad en cada proyecto (gastos generales
+      // con ese projectId), de todos los meses, no solo los últimos 6.
+      sheets: data.sheets,
+    };
+  }
+
+  private metricsFrom({ settings, invoices, payments, sheets, accounts }: RawFinancials, period: BillingPeriod, today: string): CondominiumMetrics {
     const figures = (p: BillingPeriod): MonthFigures => {
       const sheet = sheets.find((s) => sameMonth(s, p));
       const sum = (kinds: string[]) => roundCents((sheet?.expenses ?? []).filter((e) => kinds.includes(e.kind)).reduce((s, e) => s + e.amount, 0));
@@ -207,18 +275,7 @@ export class MetricsService {
     };
   }
 
-  /**
-   * Ingresos y egresos de UN mes concreto (no acumulado a hoy): el saldo inicial es la caja
-   * acumulada hasta el mes anterior, y los movimientos son solo los de este mes. Así, elegir
-   * septiembre muestra los movimientos de septiembre, con su propio saldo de cierre.
-   */
-  async monthlyCashFlow(condominium: Condominium, period: BillingPeriod): Promise<MonthlyCashFlow> {
-    const [full, sheets, accounts] = await Promise.all([
-      this.condominiums.findWithSettings(condominium.id),
-      this.sheets.listByCondominium(condominium.id),
-      this.accounts.accountsFor(condominium.id),
-    ]);
-    const settings = full?.settings ?? DEFAULT_SETTINGS;
+  private cashFlowFrom({ settings, sheets, accounts }: RawFinancials, period: BillingPeriod): MonthlyCashFlow {
     const monthKeyOf = (p: { year: number; month: number }) => p.year * 100 + p.month;
     const dateMonthKey = (iso: string) => Number(iso.slice(0, 4)) * 100 + Number(iso.slice(5, 7));
     const current = monthKeyOf(period);
@@ -271,13 +328,7 @@ export class MetricsService {
     };
   }
 
-  /**
-   * Las tres "cuentas" de dinero del condominio (efectivo USD, bolívares, Zelle), de siempre:
-   * lo recibido de los vecinos según cómo pagaron, menos lo gastado de los gastos (facturados o
-   * no) que se anotaron con esa cuenta. No incluye el saldo inicial (ese no tiene cuenta propia).
-   */
-  async cashAccounts(condominium: Condominium): Promise<Record<CashAccount, CashAccountSummary>> {
-    const [accounts, sheets] = await Promise.all([this.accounts.accountsFor(condominium.id), this.sheets.listByCondominium(condominium.id)]);
+  private cashAccountsFrom({ accounts, sheets }: RawFinancials): Record<CashAccount, CashAccountSummary> {
     const out: Record<CashAccount, CashAccountSummary> = {
       cash_usd: { received: 0, spent: 0, balance: 0 },
       bs: { received: 0, spent: 0, balance: 0 },

@@ -183,8 +183,8 @@ export function getMetricsService(): MetricsService {
 /** Proyectos con presupuesto (ej. "Pintura de fachada: $250"), casa por casa. */
 export function getBudgetService(): BudgetService {
   if (!budgetService) {
-    const { houses, budgetProjects } = dataLayer();
-    budgetService = new BudgetService(budgetProjects, houses, getBillingService(), getAccountService());
+    const { budgetProjects } = dataLayer();
+    budgetService = new BudgetService(budgetProjects, getBillingService(), getAccountService());
   }
   return budgetService;
 }

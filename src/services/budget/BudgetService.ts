@@ -1,7 +1,7 @@
 import type { BillingPeriod, Condominium } from '@/types/domain';
-import type { BudgetProjectRepository, HouseRepository } from '@/services/contracts';
+import type { BudgetProjectRepository } from '@/services/contracts';
 import type { BillingService } from '@/services/billing/BillingService';
-import type { AccountService } from '@/services/accounts/AccountService';
+import type { AccountService, HouseAccount } from '@/services/accounts/AccountService';
 import { NotFoundError, ValidationError } from '@/services/errors';
 import { allocate, roundCents } from '@/utils/billingCalculator';
 import { isValidPeriod } from '@/utils/validation';
@@ -49,7 +49,6 @@ export function scheduleFor(project: Pick<BudgetProject, 'billingMode' | 'target
 export class BudgetService {
   constructor(
     private readonly projects: BudgetProjectRepository,
-    private readonly houses: HouseRepository,
     private readonly billing: BillingService,
     private readonly accounts: AccountService,
   ) {}
@@ -100,10 +99,15 @@ export class BudgetService {
     await this.projects.delete(projectId);
   }
 
-  /** Progreso de recaudación de un proyecto, casa por casa, hasta el mes elegido (o el actual). */
-  async progress(condominium: Condominium, projectId: string, asOf: BillingPeriod): Promise<BudgetProjectProgress> {
+  /**
+   * Progreso de recaudación de un proyecto, casa por casa, hasta el mes elegido (o el actual).
+   * Si quien llama ya cargó el libro de cuentas (p. ej. para varios proyectos seguidos, o junto
+   * con otras métricas), puede pasarlo en `preloadedAccounts` para no releerlo de la base.
+   */
+  async progress(condominium: Condominium, projectId: string, asOf: BillingPeriod, preloadedAccounts?: Map<string, HouseAccount>): Promise<BudgetProjectProgress> {
     const project = await this.requireProject(condominium, projectId);
-    const [houses, accounts] = await Promise.all([this.houses.listByCondominium(condominium.id), this.accounts.accountsFor(condominium.id)]);
+    const accounts = preloadedAccounts ?? (await this.accounts.accountsFor(condominium.id));
+    const houses = [...accounts.values()].map((a) => a.house);
     const schedule = scheduleFor(project).filter((m) => periodKey(m) <= periodKey(asOf));
     const targets = allocate(project.targetAmount, houses.map((h) => h.aliquot));
 

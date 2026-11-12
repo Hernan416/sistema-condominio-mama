@@ -20,7 +20,7 @@ import { CASH_ACCOUNT_LABELS, type CashAccount } from '@/types/accounts';
 import { formatUsd, formatVes, usdToVes } from '@/utils/currency';
 import { roundCents } from '@/utils/billingCalculator';
 import { isoDateInCaracas } from '@/utils/dates';
-import { allMonths, defaultWorkingPeriod, formatPeriod, shiftPeriod } from '@/utils/months';
+import { allMonths, defaultWorkingPeriod, formatPeriod } from '@/utils/months';
 
 const page = await loadAdminCondominiumPage(Astro);
 if (page instanceof Response) return page;
@@ -37,14 +37,31 @@ const error = q.get('error')?.slice(0, 300) ?? null;
 
 const today = isoDateInCaracas(new Date());
 const metrics = getMetricsService();
-const m = await metrics.forCondominium(condominium, period, today);
+const budget = getBudgetService();
+
+// Una sola carga del libro de cuentas para TODO lo de esta página (resumen, 6 meses de
+// tendencia, caja por cuenta y el progreso de cada proyecto): antes cada pieza volvía a leerlo
+// por su cuenta y la página tardaba mucho en condominios con muchas casas.
+const [{ metrics: m, cashFlows, cashAccounts, accounts: accountsForBudget, sheets: allSheets }, projects] = await Promise.all([
+  metrics.financeOverview(condominium, period, today),
+  budget.listProjects(condominium),
+]);
+const projectProgress = await Promise.all(projects.map((p) => budget.progress(condominium, p.id, period, accountsForBudget)));
+const projectPeriodLabel = (p: (typeof projects)[number]) =>
+  p.billingMode === 'single' ? `Facturado en ${formatPeriod(p.startMonth, p.startYear)}` : `Repartido en ${p.monthsCount} meses desde ${formatPeriod(p.startMonth, p.startYear)}`;
+
+// Gastado real de cada proyecto: las facturas sueltas anotadas en "Gastos generales" (potes de
+// pintura, pinceles…), de todos los meses. Es aparte de lo facturado/recaudado a los vecinos.
+const actualSpentByProject = new Map<string, number>();
+for (const sheet of allSheets) {
+  for (const e of sheet.expenses) {
+    if (e.projectId && e.includeInReceipt === false) actualSpentByProject.set(e.projectId, roundCents((actualSpentByProject.get(e.projectId) ?? 0) + e.amount));
+  }
+}
 
 // Gastos de los últimos 6 meses, separados en Proyecto / Gasto común / Otros (y la caja de cada
 // mes), a partir de "ingresos y egresos" de cada uno (misma fuente que el reporte de Historial).
 const isProjectCategory = (category: string | null) => (category ?? '').trim().toLowerCase() === 'proyectos';
-const sixMonths = Array.from({ length: 6 }, (_, i) => shiftPeriod(period, i - 5));
-const cashFlows = await Promise.all(sixMonths.map((p) => metrics.monthlyCashFlow(condominium, p)));
-
 const expenseBreakdown = cashFlows.map((cf) => {
   let common = 0;
   let project = 0;
@@ -59,16 +76,6 @@ const expenseBreakdown = cashFlows.map((cf) => {
 const balanceTrend = cashFlows.map((cf) => ({ label: cf.label, balance: cf.closingBalance, income: cf.incomeTotal, expense: cf.expenseTotal }));
 const thisMonthBreakdown = expenseBreakdown[expenseBreakdown.length - 1];
 
-// Proyectos con presupuesto: cuánto se le ha facturado y recaudado a cada uno hasta este mes.
-const budget = getBudgetService();
-const projects = await budget.listProjects(condominium);
-const projectProgress = await Promise.all(projects.map((p) => budget.progress(condominium, p.id, period)));
-const projectPeriodLabel = (p: (typeof projects)[number]) =>
-  p.billingMode === 'single' ? `Facturado en ${formatPeriod(p.startMonth, p.startYear)}` : `Repartido en ${p.monthsCount} meses desde ${formatPeriod(p.startMonth, p.startYear)}`;
-
-// Las tres cuentas de dinero (efectivo USD, bolívares, Zelle): recibido de los vecinos según
-// cómo pagaron, menos gastado de los gastos (facturados o no) anotados con esa cuenta.
-const cashAccounts = await metrics.cashAccounts(condominium);
 const ACCOUNT_ORDER: CashAccount[] = ['cash_usd', 'bs', 'zelle'];
 
 const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
@@ -171,6 +178,7 @@ const pct = (v: number | null) => (v === null ? '—' : `${new Intl.NumberFormat
             {projectProgress.map((pp) => {
               const pctCollected = pp.targetTotal > 0 ? Math.round((pp.collectedTotal / pp.targetTotal) * 100) : 0;
               const pendingToCollect = roundCents(pp.billedTotal - pp.collectedTotal);
+              const actualSpent = actualSpentByProject.get(pp.project.id) ?? 0;
               return (
                 <li class="rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-raised)] ring-1 ring-line">
                   <a href={`/admin/${condominium.slug}/proyectos/${pp.project.id}`} class="flex flex-wrap items-start justify-between gap-4 no-underline">
@@ -182,10 +190,14 @@ const pct = (v: number | null) => (v === null ? '—' : `${new Intl.NumberFormat
                   </a>
                   <div class="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
                     <p><span class="block text-ink-muted">Meta</span><span class="tabular text-lg font-bold">{formatUsd(pp.targetTotal)}</span></p>
-                    <p><span class="block text-ink-muted">Facturado (gastado)</span><span class="tabular text-lg font-bold">{formatUsd(pp.billedTotal)}</span></p>
+                    <p><span class="block text-ink-muted">Facturado a vecinos</span><span class="tabular text-lg font-bold">{formatUsd(pp.billedTotal)}</span></p>
                     <p><span class="block text-ink-muted">Recaudado (ingresado)</span><span class="tabular text-lg font-bold text-accent">{formatUsd(pp.collectedTotal)}</span></p>
                     <p><span class="block text-ink-muted">Facturado sin cobrar</span><span class:list={['tabular text-lg font-bold', pendingToCollect > 0 ? 'text-warning' : 'text-ink-muted']}>{formatUsd(pendingToCollect)}</span></p>
                   </div>
+                  <p class="mt-2 text-sm text-ink-muted">
+                    Gastado real (facturas anotadas en <a href={`/admin/${condominium.slug}/finanzas/gastos`} class="font-bold text-accent underline">Gastos generales</a>):{' '}
+                    <strong class="tabular text-ink">{formatUsd(actualSpent)}</strong>
+                  </p>
                   <div class="mt-3 flex flex-col gap-1.5">
                     <div class="flex items-baseline justify-between text-sm"><span class="text-ink-muted">Recaudado de la meta</span><span class="font-bold">{pctCollected}%</span></div>
                     <Meter value={pp.collectedTotal} max={pp.targetTotal} label={`Recaudado de ${pp.project.name}`} />

@@ -8,7 +8,7 @@ import FormSelect from '@/components/ui/FormSelect.astro';
 import FormField from '@/components/ui/FormField.astro';
 import Button from '@/components/ui/Button.astro';
 import Alert from '@/components/ui/Alert.astro';
-import { getAppName, getBillingService, getCondominiumService } from '@/services/container';
+import { getAppName, getBillingService, getBudgetService, getCondominiumService } from '@/services/container';
 import { loadAdminCondominiumPage } from '@/services/condominiums/adminPage';
 import { toExchangeRateView } from '@/adapters/exchangeRateViewAdapter';
 import { CASH_ACCOUNT_LABELS, type CashAccount } from '@/types/accounts';
@@ -30,9 +30,10 @@ const ok = q.get('ok')?.slice(0, 200) ?? null;
 const error = q.get('error')?.slice(0, 300) ?? null;
 
 const billing = getBillingService();
-const { sheet: currentSheet } = await billing.getSheet(condominium, period);
+const [{ sheet: currentSheet }, projects] = await Promise.all([billing.getSheet(condominium, period), getBudgetService().listProjects(condominium)]);
 const generalExpenseCategories = [...new Set([...currentSheet.expenses.map((e) => e.category?.trim()).filter((c): c is string => !!c), ...EXPENSE_CATEGORY_SUGGESTIONS])];
 const ACCOUNT_ORDER: CashAccount[] = ['cash_usd', 'bs', 'zelle'];
+const projectNameOf = new Map(projects.map((p) => [p.id, p.name]));
 
 const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
 ---
@@ -76,6 +77,7 @@ const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
                 <tr class="border-b border-line text-left text-xs font-bold uppercase tracking-[0.08em] text-ink-muted">
                   <th scope="col" class="px-4 py-3">Concepto</th>
                   <th scope="col" class="px-4 py-3">Categoría</th>
+                  <th scope="col" class="px-4 py-3">Proyecto</th>
                   <th scope="col" class="px-4 py-3">Cuenta</th>
                   <th scope="col" class="px-4 py-3 text-right">Monto</th>
                   <th scope="col" class="px-4 py-3">Estado</th>
@@ -87,6 +89,7 @@ const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
                   <tr class="border-b border-line last:border-b-0">
                     <td class="px-4 py-3 font-bold text-ink">{e.concept}</td>
                     <td class="px-4 py-3 text-ink-muted">{e.category ?? '—'}</td>
+                    <td class="px-4 py-3 text-ink-muted">{e.projectId ? (projectNameOf.get(e.projectId) ?? '—') : '—'}</td>
                     <td class="px-4 py-3 text-ink-muted">{e.account ? CASH_ACCOUNT_LABELS[e.account] : '—'}</td>
                     <td class="tabular px-4 py-3 text-right font-bold">{formatUsd(e.amount)}</td>
                     <td class="px-4 py-3">
@@ -114,13 +117,24 @@ const years = [now.year - 2, now.year - 1, now.year, now.year + 1];
 
       <details class="mt-2">
         <summary class="cursor-pointer font-bold text-accent">+ Anotar un gasto general (no se cobra a los vecinos)</summary>
+        <p class="mt-3 text-sm text-ink-muted">
+          Si es para un proyecto con presupuesto (ej. pintar la piscina), elíjalo abajo y vaya anotando cada factura real por separado
+          (los potes de pintura, los pinceles…): así se ve cuánto se ha gastado de verdad, aparte de lo facturado a los vecinos.
+        </p>
         <form method="post" action={`/api/admin/${condominium.slug}/finanzas/gastos`} class="mt-4 flex flex-col gap-4">
           <input type="hidden" name="month" value={period.month} />
           <input type="hidden" name="year" value={period.year} />
           <div class="grid gap-4 sm:grid-cols-2">
-            <FormField id="ge-concept" name="concept" label="Concepto" required maxlength={120} placeholder="Ej.: Reparación eléctrica del cuarto de bombas" />
+            <FormField id="ge-concept" name="concept" label="Concepto" required maxlength={120} placeholder="Ej.: 4 potes de pintura para la piscina" />
             <FormField id="ge-category" name="category" label="Categoría (opcional)" maxlength={60} list="general-expense-categories" placeholder="Ej.: Reparaciones" />
             <datalist id="general-expense-categories">{generalExpenseCategories.map((c) => <option value={c} />)}</datalist>
+            <FormSelect
+              id="ge-project"
+              name="projectId"
+              label="Proyecto (opcional)"
+              value=""
+              options={[{ value: '', label: 'Ninguno (gasto general)' }, ...projects.map((p) => ({ value: p.id, label: p.name }))]}
+            />
             <FormSelect id="ge-kind" name="kind" label="Tipo" value="ordinary" options={[{ value: 'ordinary', label: 'Gasto común' }, { value: 'extraordinary', label: 'Cuota extraordinaria' }]} />
             <FormSelect id="ge-account" name="account" label="Cuenta" value="bs" options={ACCOUNT_ORDER.map((k) => ({ value: k, label: CASH_ACCOUNT_LABELS[k] }))} />
             <FormField id="ge-amount" name="amount" label="Monto (USD)" inputmode="decimal" required placeholder="0,00" />
