@@ -214,6 +214,25 @@ export class AccountService implements AccountLedger {
   // ── Pagos ──────────────────────────────────────────────────
   async registerPayment(condominium: Condominium, houseId: string, input: PaymentInput): Promise<Payment> {
     await this.requireHouse(condominium, houseId);
+    return this.payments.create({ houseId, ...this.paymentFieldsFrom(input) });
+  }
+
+  /** Corrige un pago ya registrado (monto, fecha, moneda, forma de pago…). La casa no cambia. */
+  async updatePayment(condominium: Condominium, paymentId: string, input: PaymentInput): Promise<Payment> {
+    const payments = await this.payments.listByCondominium(condominium.id);
+    const existing = payments.find((p) => p.id === paymentId);
+    if (!existing) throw new NotFoundError('El pago no existe en este condominio');
+    return this.payments.update(paymentId, { houseId: existing.houseId, ...this.paymentFieldsFrom(input) });
+  }
+
+  async deletePayment(condominium: Condominium, paymentId: string): Promise<void> {
+    const payments = await this.payments.listByCondominium(condominium.id);
+    if (!payments.some((p) => p.id === paymentId)) throw new NotFoundError('El pago no existe en este condominio');
+    await this.payments.delete(paymentId);
+  }
+
+  /** Valida un pago y convierte su monto a USD (si se anotó en Bs.). Comparte registrar y editar. */
+  private paymentFieldsFrom(input: PaymentInput) {
     if (!isDate(input.date)) throw new ValidationError('Fecha de pago inválida');
     if (input.date > isoDateInCaracas(new Date(Date.now() + 86_400_000))) throw new ValidationError('La fecha del pago no puede ser futura');
     if (!METHODS.includes(input.method)) throw new ValidationError('Forma de pago inválida');
@@ -232,8 +251,7 @@ export class AccountService implements AccountLedger {
       if (amountUsd <= 0) throw new ValidationError('El monto en Bs. es demasiado pequeño');
     }
 
-    return this.payments.create({
-      houseId,
+    return {
       date: input.date,
       amount: roundCents(amountUsd),
       method: input.method,
@@ -241,13 +259,7 @@ export class AccountService implements AccountLedger {
       amountVes,
       exchangeRate: rate,
       note: input.note?.trim().slice(0, 300) || null,
-    });
-  }
-
-  async deletePayment(condominium: Condominium, paymentId: string): Promise<void> {
-    const payments = await this.payments.listByCondominium(condominium.id);
-    if (!payments.some((p) => p.id === paymentId)) throw new NotFoundError('El pago no existe en este condominio');
-    await this.payments.delete(paymentId);
+    };
   }
 
   // ── Deudas registradas ─────────────────────────────────────

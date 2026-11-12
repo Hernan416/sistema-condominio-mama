@@ -26,6 +26,12 @@ export class SupabasePaymentRepository implements PaymentRepository {
     return paymentRowToDomain(data);
   }
 
+  async update(id: string, payment: NewPayment): Promise<Payment> {
+    const { data, error } = await this.db.from('payments').update(newPaymentToRow(payment)).eq('id', id).select(PAYMENT_COLUMNS).single<PaymentRow>();
+    if (error) throw new Error(`No se pudo editar el pago: ${error.message}`);
+    return paymentRowToDomain(data);
+  }
+
   async delete(id: string): Promise<void> {
     const { error } = await this.db.from('payments').delete().eq('id', id);
     if (error) throw new Error(`No se pudo anular el pago: ${error.message}`);

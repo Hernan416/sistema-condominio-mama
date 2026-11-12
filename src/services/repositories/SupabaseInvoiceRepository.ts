@@ -77,4 +77,8 @@ export class SupabaseInvoiceRepository implements InvoiceRepository {
     return supabaseInvoiceToDomainInvoice(data);
   }
 
+  async delete(id: string): Promise<void> {
+    const { error } = await this.db.from('invoices').delete().eq('id', id);
+    if (error) throw new Error(`No se pudo eliminar el recibo: ${error.message}`);
+  }
 }

@@ -51,6 +51,12 @@ export class LocalInvoiceRepository implements InvoiceRepository {
       return toDomain(db, row);
     });
   }
+
+  delete(id: string): Promise<void> {
+    return this.store.transaction((db) => {
+      db.invoices = db.invoices.filter((i) => i.id !== id);
+    });
+  }
 }
 
 function houseIdsOf(db: LocalDatabase, condominiumId: string): Set<string> {

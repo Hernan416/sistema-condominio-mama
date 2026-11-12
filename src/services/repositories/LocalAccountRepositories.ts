@@ -24,6 +24,15 @@ export class LocalPaymentRepository implements PaymentRepository {
     });
   }
 
+  update(id: string, payment: NewPayment): Promise<Payment> {
+    return this.store.transaction((db) => {
+      const row = db.payments.find((p) => p.id === id);
+      if (!row) throw new Error('El pago no existe');
+      Object.assign(row, newPaymentToRow(payment));
+      return paymentRowToDomain(row);
+    });
+  }
+
   delete(id: string): Promise<void> {
     return this.store.transaction((db) => {
       db.payments = db.payments.filter((p) => p.id !== id);

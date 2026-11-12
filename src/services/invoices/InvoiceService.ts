@@ -57,6 +57,20 @@ export class InvoiceService {
   }
 
   /**
+   * Elimina un recibo emitido, sea histórico (importado) o no: a diferencia de "volver a
+   * emitir", que si está bloqueada para los importados, eliminar es irrestricto a propósito
+   * (la administradora puede querer borrar un recibo cargado por error). Los pagos que tenía
+   * aplicados no se tocan: al eliminarse el cargo, el libro de cuentas los recalcula y pasan al
+   * siguiente cargo pendiente (o quedan como saldo a favor).
+   */
+  async deleteGenerated(condominium: Condominium, invoiceId: string): Promise<void> {
+    const invoice = await this.invoices.findById(invoiceId);
+    const house = invoice ? await this.houses.findById(invoice.houseId) : null;
+    if (!invoice || !house || house.condominiumId !== condominium.id) throw new NotFoundError('Recibo no encontrado');
+    await this.invoices.delete(invoiceId);
+  }
+
+  /**
    * PDF de un recibo de la casa del residente: el indicado (solo si es de SU casa) o, sin id,
    * el más reciente. null si no hay ninguno.
    */

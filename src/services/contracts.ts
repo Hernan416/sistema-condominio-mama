@@ -59,12 +59,14 @@ export interface InvoiceRepository {
   listIssuedByCondominium(condominiumId: string): Promise<Invoice[]>;
   /** Crea o reemplaza la factura emitida de esa casa y periodo. */
   saveGenerated(invoice: GeneratedInvoice): Promise<Invoice>;
+  delete(id: string): Promise<void>;
 }
 
 /** Pagos y abonos de las casas. */
 export interface PaymentRepository {
   listByCondominium(condominiumId: string): Promise<Payment[]>;
   create(payment: NewPayment): Promise<Payment>;
+  update(id: string, payment: NewPayment): Promise<Payment>;
   delete(id: string): Promise<void>;
 }
 

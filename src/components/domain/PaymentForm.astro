@@ -3,24 +3,48 @@
 import Button from '@/components/ui/Button.astro';
 import FormField from '@/components/ui/FormField.astro';
 import FormSelect from '@/components/ui/FormSelect.astro';
-import { PAYMENT_METHOD_LABELS } from '@/types/accounts';
+import { PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/types/accounts';
 
 interface Props {
   action: string;
   today: string;
-  /** Monto sugerido en USD (p. ej. lo pendiente del recibo). */
+  /** Monto sugerido en USD (p. ej. lo pendiente del recibo), o el monto actual al editar. */
   suggestedAmount: string | null;
-  /** Tasa BCV de hoy, formato "855,6625". */
+  /** Tasa BCV de hoy, formato "855,6625" (o la tasa actual del pago al editar). */
   todayRate: string | null;
   /** Últimos días con tasa guardada, del más reciente al más antiguo, para elegir la de un día puntual. */
   recentRates: { day: string; label: string; rate: string }[];
+  /** Si se indica, el formulario edita ese pago en vez de registrar uno nuevo. */
+  paymentId?: string;
+  initialCurrency?: 'USD' | 'VES';
+  initialDate?: string;
+  initialMethod?: PaymentMethod;
+  initialReference?: string | null;
+  initialNote?: string | null;
+  submitLabel?: string;
 }
 
-const { action, today, suggestedAmount, todayRate, recentRates } = Astro.props;
+const {
+  action,
+  today,
+  suggestedAmount,
+  todayRate,
+  recentRates,
+  paymentId,
+  initialCurrency = 'USD',
+  initialDate = today,
+  initialMethod = 'transfer',
+  initialReference = null,
+  initialNote = null,
+  submitLabel = 'Registrar pago',
+} = Astro.props;
 const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({ value, label }));
+// Ids únicos por formulario: puede haber varios en la misma página (uno por pago al editar).
+const uid = paymentId ?? 'new';
 ---
 
 <form method="post" action={action} class="flex flex-col gap-4" data-payment-form>
+  {paymentId && <input type="hidden" name="paymentId" value={paymentId} />}
   <fieldset class="flex flex-wrap gap-2">
     <legend class="mb-1.5 text-sm font-bold text-ink-muted">Moneda en que pagó</legend>
     {
@@ -29,7 +53,7 @@ const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
         { value: 'VES', label: 'Bolívares (Bs.)' },
       ].map((c) => (
         <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-surface px-4 text-base font-bold ring-1 ring-inset ring-line has-[:checked]:bg-accent-tint has-[:checked]:text-accent-strong has-[:checked]:ring-accent">
-          <input type="radio" name="currency" value={c.value} checked={c.value === 'USD'} class="accent-[var(--color-accent)]" />
+          <input type="radio" name="currency" value={c.value} checked={c.value === initialCurrency} class="accent-[var(--color-accent)]" />
           {c.label}
         </label>
       ))
@@ -37,17 +61,17 @@ const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
   </fieldset>
 
   <div class="grid gap-4 sm:grid-cols-2">
-    <FormField id="pay-amount" name="amount" label="Monto" value={suggestedAmount?.replace('.', ',') ?? ''} inputmode="decimal" placeholder="0,00" required />
+    <FormField id={`pay-amount-${uid}`} name="amount" label="Monto" value={suggestedAmount?.replace('.', ',') ?? ''} inputmode="decimal" placeholder="0,00" required />
     <div class="flex flex-col gap-2" data-rate-group>
       {
         recentRates.length > 0 && (
           <div class="flex flex-col gap-1.5">
-            <label for="pay-rate-day" class="text-sm font-bold text-ink-muted">
+            <label for={`pay-rate-day-${uid}`} class="text-sm font-bold text-ink-muted">
               Tasa de un día específico
             </label>
             <div class="relative">
               <select
-                id="pay-rate-day"
+                id={`pay-rate-day-${uid}`}
                 data-rate-day-select
                 class="min-h-11 w-full cursor-pointer appearance-none rounded-xl bg-surface pl-3 pr-9 text-base text-ink ring-1 ring-inset ring-line hover:ring-line-strong focus:outline-none focus:ring-2 focus:ring-accent"
               >
@@ -75,7 +99,7 @@ const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
         )
       }
       <FormField
-        id="pay-rate"
+        id={`pay-rate-${uid}`}
         name="exchangeRate"
         label="Tasa Bs. por USD (solo si pagó en Bs.)"
         value={todayRate ?? ''}
@@ -83,14 +107,14 @@ const methods = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
         hint="Tasa BCV del día del pago. Se propone la de hoy, o elija arriba la de otro día."
       />
     </div>
-    <FormField id="pay-date" name="date" type="date" label="Fecha del pago" value={today} required />
-    <FormSelect id="pay-method" name="method" label="Forma de pago" value="transfer" options={methods} />
-    <FormField id="pay-ref" name="reference" label="N° de referencia" placeholder="Ej.: 0012345678" maxlength={60} />
-    <FormField id="pay-note" name="note" label="Nota (opcional)" maxlength={300} />
+    <FormField id={`pay-date-${uid}`} name="date" type="date" label="Fecha del pago" value={initialDate} required />
+    <FormSelect id={`pay-method-${uid}`} name="method" label="Forma de pago" value={initialMethod} options={methods} />
+    <FormField id={`pay-ref-${uid}`} name="reference" label="N° de referencia" value={initialReference} placeholder="Ej.: 0012345678" maxlength={60} />
+    <FormField id={`pay-note-${uid}`} name="note" label="Nota (opcional)" value={initialNote} maxlength={300} />
   </div>
 
   <p class="text-sm text-ink-muted">El pago se aplica solo: primero a la deuda más antigua. Si paga de más, queda saldo a favor para el próximo recibo.</p>
-  <div><Button type="submit" size="md" class="!w-auto px-6">Registrar pago</Button></div>
+  <div><Button type="submit" size="md" class="!w-auto px-6">{submitLabel}</Button></div>
 </form>
 
 <script>
